@@ -4,7 +4,7 @@ export const SEA_LEVEL = 43;
 export const LOAD_RADIUS = 2;
 export const UNLOAD_RADIUS = 3;
 export const MAX_LIGHT = 15;
-export const TARGET_FPS = 30;
+export const TARGET_FPS = 999;
 export const SAVE_KEY = "indev-unlimited-save-v1";
 
 export const FACE_DIRECTIONS = [
