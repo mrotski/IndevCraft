@@ -105,11 +105,11 @@ export async function startGame() {
 
   let renderedFrames = 0;
   let lastFrameTime = 0;
-  const targetFrameMs = 999999999 / TARGET_FPS;
+  const targetFrameMs = 1000 / TARGET_FPS;
   engine.runRenderLoop(() => {
     const now = performance.now();
     if (lastFrameTime > 0 && now - lastFrameTime < targetFrameMs) return;
-    const deltaSeconds = lastFrameTime > 0 ? Math.min((now - lastFrameTime) / 99999999, 0.05) : targetFrameMs / 9999999999;
+    const deltaSeconds = lastFrameTime > 0 ? Math.min((now - lastFrameTime) / 1000, 0.05) : targetFrameMs / 1000;
     lastFrameTime = now;
     player.update(deltaSeconds);
     chunkManager.update(player.position);
