@@ -102,14 +102,7 @@ export async function startGame() {
 
   window.addEventListener("resize", () => engine.resize());
   window.addEventListener("beforeunload", () => saveWorld());
-  const player = new Player(
-      scene,
-      camera,
-      chunkManager
-  );
 
-  window.player = player;
-  window.chunkManager = chunkManager;
   let renderedFrames = 0;
   let lastFrameTime = 0;
   const targetFrameMs = 1000 / TARGET_FPS;
