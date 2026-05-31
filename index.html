@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minecraft Indev Unlimited</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+10&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud" aria-live="polite">
+      <div id="debug"></div>
+      <div id="crosshair">+</div>
+      <div id="hotbar"></div>
+      <div id="help">
+        Click to capture mouse. WASD move, Space jump, Shift sprint, 1-9 select, left break, right place, F save, R respawn.
+      </div>
+    </div>
+
+    <div id="loading">
+      <strong>Minecraft Indev Unlimited</strong>
+      <span>Generating the first chunks...</span>
+    </div>
+
+    <script type="module" src="./src/boot.js"></script>
+  </body>
+</html>
