@@ -29,11 +29,11 @@ export const BlockData = {
   [Blocks.GRAVEL]: { name: "Gravel", color: [0.86, 0.86, 0.86], solid: true, textures: { all: "gravel" } },
   [Blocks.WATER]: {
     name: "Water",
-    color: [0.65, 0.78, 1],
+    color: [0.65, 0.78, 0.55],
     transparent: true,
     solid: false,
     alpha: 1,
-    textures: { all: "water" },
+    textures: { all: "#2752c2"},
   },
   [Blocks.WOOD]: {
     name: "Wood",

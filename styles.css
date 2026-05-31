@@ -112,7 +112,7 @@ body {
   display: grid;
   place-content: center;
   gap: 8px;
-  background: #6da7d8;
+  background:url("src/loadingscreen.png");
   color: white;
   text-align: center;
   font-family: "Jersey 10", "Courier New", monospace;

@@ -8,7 +8,7 @@ const TEXTURE_SOURCES = {
   stone: { src: "../stone_all_sides.png", fallback: "#7a7a7a" },
   sand: { src: "../sand_all_sides.png", fallback: "#c7b873" },
   cobblestone: { src: "../cobblestone_all_sides.png", fallback: "#6b6b6b" },
-  water: { src: "../water_top.png", fallback: "#2752c2" },
+  water: "#2752c2",
   wood_side: { src: "../wood_log_side.webp", fallback: "#70421a" },
   wood_top: { src: "../wood_log_top.png", fallback: "#94632b" },
   leaves: { src: "../leaves_all_sides.png", fallback: "#398c2e" },
