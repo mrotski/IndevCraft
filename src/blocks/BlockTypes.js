@@ -33,7 +33,7 @@ export const BlockData = {
     transparent: true,
     solid: false,
     alpha: 1,
-    textures: { all: "#2752c2"},
+    textures: { all: "water" },
   },
   [Blocks.WOOD]: {
     name: "Wood",
