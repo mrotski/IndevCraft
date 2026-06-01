@@ -56,7 +56,7 @@ export const HOTBAR_BLOCKS = [
   Blocks.SAND,
   Blocks.GRAVEL,
   Blocks.PLANKS,
-  Blocks.GLASS,
+  Blocks.COBBLESTONE,
   Blocks.WOOD,
   Blocks.LEAVES,
 ];
