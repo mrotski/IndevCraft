@@ -50,14 +50,14 @@ export const BlockData = {
 };
 
 export const HOTBAR_BLOCKS = [
-  Blocks.GRASS,
-  Blocks.DIRT,
-  Blocks.STONE,
+  Blocks.PLANKS,
+  Blocks.WOOD,
+  Blocks.COBBLESTONE,
   Blocks.SAND,
   Blocks.GRAVEL,
-  Blocks.PLANKS,
-  Blocks.COBBLESTONE,
-  Blocks.WOOD,
+  Blocks.STONE,
+  Blocks.DIRT,
+  Blocks.GRASS,
   Blocks.LEAVES,
 ];
 
