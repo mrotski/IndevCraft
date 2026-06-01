@@ -52,7 +52,7 @@ export const BlockData = {
 export const HOTBAR_BLOCKS = [
   Blocks.PLANKS,
   Blocks.WOOD,
-  Blocks.COBBLESTONE,
+  Blocks.GLASS,
   Blocks.SAND,
   Blocks.GRAVEL,
   Blocks.STONE,
