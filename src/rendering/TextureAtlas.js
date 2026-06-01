@@ -1,4 +1,4 @@
-const TILE_SIZE = 16;
+const TILE_SIZE = 16.001;
 
 const TEXTURE_SOURCES = {
   grass_sides: { src: "../grass_sides.png", fallback: "#61ad3a" },
