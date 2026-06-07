@@ -179,13 +179,24 @@ export class ChunkManager {
   }
 
   findSpawn() {
+    return this.findSurfacePosition(0, 0);
+  }
+
+  findSurfacePosition(worldX, worldZ) {
     for (let y = WORLD_HEIGHT - 2; y > SEA_LEVEL; y--) {
-      const block = this.getBlock(0, y, 0);
+      const block = this.getBlock(worldX, y, worldZ);
       if (block !== Blocks.AIR && block !== Blocks.WATER) {
-        return new BABYLON.Vector3(0.5, y + 3, 0.5);
+        return new BABYLON.Vector3(Math.floor(worldX) + 0.5, y + 3, Math.floor(worldZ) + 0.5);
       }
     }
-    return new BABYLON.Vector3(0.5, SEA_LEVEL + 20, 0.5);
+    return new BABYLON.Vector3(Math.floor(worldX) + 0.5, SEA_LEVEL + 20, Math.floor(worldZ) + 0.5);
+  }
+
+  prepareAreaAround(worldX, worldZ, budget = 25) {
+    const { cx, cz } = this.worldToChunk(worldX, worldZ);
+    this.queueNearbyChunks(cx, cz);
+    this.generatePending(budget);
+    this.rebuildDirtyMeshes(budget);
   }
 
   raycast(origin, direction, maxDistance = 6) {

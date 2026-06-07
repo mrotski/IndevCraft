@@ -1,10 +1,12 @@
 import { Blocks, isSolid } from "./blocks/BlockTypes.js";
 import { TARGET_FPS, WORLD_HEIGHT } from "./constants.js";
 import { SaveManager } from "./storage/SaveManager.js";
+import { BlockParticles } from "./rendering/BlockParticles.js";
 import { loadTextureAtlas } from "./rendering/TextureAtlas.js";
 import { ChunkManager } from "./world/ChunkManager.js";
 import { Controls } from "./player/Controls.js";
 import { Player } from "./player/Player.js";
+import { Chat } from "./ui/Chat.js";
 import { HUD } from "./ui/HUD.js";
 
 export async function startGame() {
@@ -70,9 +72,16 @@ export async function startGame() {
 
   const player = new Player(scene, canvas, chunkManager, controls, startPosition);
   const hud = new HUD(saveManager.seed, textureAtlas);
+  const blockParticles = new BlockParticles(scene, textureAtlas);
+  const chat = new Chat({
+    onCommand(command) {
+      return runCommand(command, player, chunkManager, saveWorld);
+    },
+  });
 
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
   canvas.addEventListener("pointerdown", (event) => {
+    if (chat.isOpen()) return;
     event.preventDefault();
     if (!controls.pointerLocked) {
       canvas.requestPointerLock();
@@ -82,6 +91,7 @@ export async function startGame() {
     if (!hit) return;
 
     if (event.button === 0) {
+      blockParticles.burst(hit.block, hit.x, hit.y, hit.z);
       chunkManager.setBlock(hit.x, hit.y, hit.z, Blocks.AIR);
     } else if (event.button === 2 && hit.place) {
       const { x, y, z } = hit.place;
@@ -92,6 +102,17 @@ export async function startGame() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.code === "F1") {
+      event.preventDefault();
+      hud.toggleHidden();
+      return;
+    }
+    if (event.code === "F3") {
+      event.preventDefault();
+      hud.toggleDebugGui();
+      return;
+    }
+    if (chat.isOpen()) return;
     if (event.code === "KeyF") saveWorld();
     if (event.code === "KeyR") {
       player.position.copyFrom(chunkManager.findSpawn());
@@ -112,6 +133,7 @@ export async function startGame() {
     const deltaSeconds = lastFrameTime > 0 ? Math.min((now - lastFrameTime) / 1000, 0.05) : targetFrameMs / 1000;
     lastFrameTime = now;
     player.update(deltaSeconds);
+    blockParticles.update(deltaSeconds);
     chunkManager.update(player.position);
     hud.update(scene, player, chunkManager);
     scene.render();
@@ -126,6 +148,36 @@ export async function startGame() {
     saveManager.setPlayer(player.position, new BABYLON.Vector2(controls.pitch, controls.yaw));
     saveManager.flush();
   }
+}
+
+function runCommand(command, player, chunkManager, saveWorld) {
+  const parts = command.slice(1).trim().split(/\s+/);
+  const name = parts.shift()?.toLowerCase();
+
+  if (name === "tp") {
+    const values = parts.map(Number);
+    if (parts.length !== values.length || values.some((value) => Number.isNaN(value))) {
+      return "Usage: /tp <x> <y> <z> or /tp <x> <z>";
+    }
+
+    if (values.length === 2) {
+      const [x, z] = values;
+      chunkManager.prepareAreaAround(x, z);
+      player.position.copyFrom(chunkManager.findSurfacePosition(x, z));
+    } else if (values.length === 3) {
+      const [x, y, z] = values;
+      chunkManager.prepareAreaAround(x, z);
+      player.position.set(x, y, z);
+    } else {
+      return "Usage: /tp <x> <y> <z> or /tp <x> <z>";
+    }
+
+    player.velocity.set(0, 0, 0);
+    saveWorld();
+    return `Teleported to ${player.position.x.toFixed(1)} ${player.position.y.toFixed(1)} ${player.position.z.toFixed(1)}`;
+  }
+
+  return `Unknown command: /${name ?? ""}`;
 }
 
 function canPlayerOccupy(position, chunkManager) {

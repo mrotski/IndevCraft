@@ -5,6 +5,7 @@ export class HUD {
   constructor(seed, textureAtlas) {
     this.seed = seed;
     this.textureAtlas = textureAtlas;
+    this.root = document.getElementById("hud");
     this.debug = document.getElementById("debug");
     this.hotbar = document.getElementById("hotbar");
     this.selectedIndex = 0;
@@ -54,6 +55,17 @@ export class HUD {
 
   getSelectedBlock() {
     return HOTBAR_BLOCKS[this.selectedIndex];
+  }
+
+  toggleDebugGui() {
+    if (this.root.classList.contains("gui-hidden")) {
+      this.root.classList.remove("gui-hidden");
+    }
+    this.root.classList.toggle("gui-debug-hidden");
+  }
+
+  toggleHidden() {
+    this.root.classList.toggle("gui-hidden");
   }
 
   update(scene, player, chunkManager) {

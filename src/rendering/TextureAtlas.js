@@ -1,4 +1,4 @@
-const TILE_SIZE = 16.001;
+const TILE_SIZE = 16;
 
 const TEXTURE_SOURCES = {
   grass_sides: { src: "../grass_sides.png", fallback: "#61ad3a" },
@@ -67,7 +67,7 @@ export async function loadTextureAtlas(scene) {
   }
 
   dynamicTexture.update(false);
-  dynamicTexture.hasAlpha = false;
+  dynamicTexture.hasAlpha = true;
   dynamicTexture.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
   dynamicTexture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
 

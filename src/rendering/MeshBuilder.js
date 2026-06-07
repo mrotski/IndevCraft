@@ -61,8 +61,10 @@ export class MeshBuilder {
     const material = new BABYLON.StandardMaterial("classic-voxel-material", this.scene);
     material.diffuseColor = BABYLON.Color3.White();
     material.diffuseTexture = this.textureAtlas.texture;
-    material.diffuseTexture.hasAlpha = false;
-    material.useAlphaFromDiffuseTexture = false;
+    material.diffuseTexture.hasAlpha = true;
+    material.useAlphaFromDiffuseTexture = true;
+    material.transparencyMode = BABYLON.Material.MATERIAL_ALPHATEST;
+    material.alphaCutOff = 0.12;
     material.specularColor = BABYLON.Color3.Black();
     material.emissiveColor = new BABYLON.Color3(0.02, 0.02, 0.02);
     material.backFaceCulling = true;

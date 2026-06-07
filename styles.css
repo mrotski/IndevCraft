@@ -25,6 +25,16 @@ body {
   text-shadow: 2px 2px 0 #1b1b1b;
 }
 
+#hud.gui-debug-hidden #debug,
+#hud.gui-debug-hidden #crosshair,
+#hud.gui-debug-hidden #help {
+  display: none;
+}
+
+#hud.gui-hidden {
+  display: none;
+}
+
 #debug {
   position: absolute;
   top: 10px;
@@ -48,6 +58,41 @@ body {
   font-size: 28px;
   line-height: 20px;
   color: rgba(255, 255, 255, 0.9);
+}
+
+#chat {
+  position: absolute;
+  left: 10px;
+  bottom: 92px;
+  width: min(520px, calc(100vw - 20px));
+  font-size: 20px;
+}
+
+#chatLog {
+  max-height: 168px;
+  overflow: hidden;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  line-height: 1.15;
+}
+
+#chatInput {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 5px;
+  padding: 5px 8px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.62);
+  color: white;
+  font: inherit;
+  outline: none;
+  pointer-events: auto;
+}
+
+#chat.open #chatInput {
+  display: block;
 }
 
 #hotbar {
