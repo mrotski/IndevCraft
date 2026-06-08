@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IndevCraft</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+10&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud" aria-live="polite">
+      <div id="debug"></div>
+      <div id="chat">
+        <div id="chatLog"></div>
+        <input id="chatInput" type="text" autocomplete="off" spellcheck="false" maxlength="120" />
+      </div>
+      <div id="crosshair">+</div>
+      <div id="hotbar"></div>
+      <div id="help">
+        <h1>VERSION: V12.0.0</h1>
+      </div>
+    </div>
+
+    <div id="loading">
+      <strong>IndevCraft</strong>
+      <span>Creating world...</span>
+    </div>
+
+    <div id="pauseMenu">
+      <div class="pause-panel active" id="pauseMain">
+        <h1>Game menu</h1>
+        <button id="backToGame">Back to game</button>
+        <button id="openLoadWorld">Load from save</button>
+        <button id="openSaveWorld">Save world</button>
+      </div>
+
+      <div class="pause-panel" id="pauseSave">
+        <h1>Save world</h1>
+        <input id="worldNameInput" type="text" maxlength="32" autocomplete="off" spellcheck="false" placeholder="World name" />
+        <button id="confirmSaveWorld">Save</button>
+        <button id="cancelSaveWorld">Back</button>
+      </div>
+
+      <div class="pause-panel wide" id="pauseLoad">
+        <h1>Load from save</h1>
+        <div id="worldList"></div>
+        <button id="backFromLoad">Back</button>
+      </div>
+    </div>
+
+    <script type="module" src="./src/boot.js"></script>
+  </body>
+</html>
