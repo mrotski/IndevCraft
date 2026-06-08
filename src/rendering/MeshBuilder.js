@@ -68,14 +68,6 @@ export class MeshBuilder {
   }
 
   build(chunk) {
-    const positions = [];
-    const indices = [];
-    const normals = [];
-    const colors = [];
-    const uvs = [];
-    let vertex = 0;
-
-    // Separate opaque and transparent geometry to render transparents correctly
     const positionsOpaque = [];
     const indicesOpaque = [];
     const normalsOpaque = [];
@@ -89,39 +81,94 @@ export class MeshBuilder {
     const colorsTransparent = [];
     const uvsTransparent = [];
     let vertexTransparent = 0;
-    
+
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const block = chunk.getBlock(x, y, z);
           if (block === Blocks.AIR) continue;
+
           const data = BlockData[block];
           const isTrans = !!data?.transparent;
+
           if (data.crossed) {
             if (isTrans) {
-              vertexTransparent = this.addCrossedBlock(chunk, x, y, z, block, positionsTransparent, normalsTransparent, indicesTransparent, colorsTransparent, uvsTransparent, vertexTransparent);
+              vertexTransparent = this.addCrossedBlock(
+                chunk,
+                x,
+                y,
+                z,
+                block,
+                positionsTransparent,
+                normalsTransparent,
+                indicesTransparent,
+                colorsTransparent,
+                uvsTransparent,
+                vertexTransparent,
+              );
             } else {
-              vertexOpaque = this.addCrossedBlock(chunk, x, y, z, block, positionsOpaque, normalsOpaque, indicesOpaque, colorsOpaque, uvsOpaque, vertexOpaque);
+              vertexOpaque = this.addCrossedBlock(
+                chunk,
+                x,
+                y,
+                z,
+                block,
+                positionsOpaque,
+                normalsOpaque,
+                indicesOpaque,
+                colorsOpaque,
+                uvsOpaque,
+                vertexOpaque,
+              );
             }
             continue;
           }
+
           for (const face of FACE_DIRECTIONS) {
             if (!this.shouldRenderFace(chunk, x, y, z, face)) continue;
             if (isTrans) {
-              vertexTransparent = this.addFace(chunk, x, y, z, block, face, positionsTransparent, normalsTransparent, indicesTransparent, colorsTransparent, uvsTransparent, vertexTransparent);
+              vertexTransparent = this.addFace(
+                chunk,
+                x,
+                y,
+                z,
+                block,
+                face,
+                positionsTransparent,
+                normalsTransparent,
+                indicesTransparent,
+                colorsTransparent,
+                uvsTransparent,
+                vertexTransparent,
+              );
             } else {
-              vertexOpaque = this.addFace(chunk, x, y, z, block, face, positionsOpaque, normalsOpaque, indicesOpaque, colorsOpaque, uvsOpaque, vertexOpaque);
+              vertexOpaque = this.addFace(
+                chunk,
+                x,
+                y,
+                z,
+                block,
+                face,
+                positionsOpaque,
+                normalsOpaque,
+                indicesOpaque,
+                colorsOpaque,
+                uvsOpaque,
+                vertexOpaque,
+              );
             }
+          }
         }
       }
     }
 
-    if (chunk.mesh) {
-    // remove previous mesh(es)
-    if (chunk.mesh) {
-      if (chunk.mesh.geometry && chunk.mesh.geometry.dispose) chunk.mesh.geometry.dispose();
-      if (chunk.mesh.material && chunk.mesh.material.dispose) chunk.mesh.material.dispose();
-      if (chunk.mesh.parent && typeof chunk.mesh.parent.remove === "function") chunk.mesh.parent.remove(chunk.mesh);
+    if (chunk.meshes) {
+      for (const mesh of chunk.meshes) {
+        if (mesh.geometry && mesh.geometry.dispose) mesh.geometry.dispose();
+        if (mesh.material && mesh.material.dispose) mesh.material.dispose();
+        if (mesh.parent && typeof mesh.parent.remove === "function") mesh.parent.remove(mesh);
+      }
+      chunk.meshes = null;
       chunk.mesh = null;
     }
 
@@ -140,6 +187,7 @@ export class MeshBuilder {
         });
         return null;
       }
+
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(positionsArr, 3));
       geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normalsArr, 3));
@@ -150,28 +198,43 @@ export class MeshBuilder {
       } else {
         geometry.setIndex(indicesArr);
       }
+
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
       this.scene.add(mesh);
       return mesh;
     };
 
-    // opaque mesh (front-side, depth write)
     const opaqueMaterial = this.material.clone();
     opaqueMaterial.side = THREE.FrontSide;
     opaqueMaterial.transparent = false;
     opaqueMaterial.depthWrite = true;
-    const opaqueMesh = addMeshFromArrays(positionsOpaque, normalsOpaque, uvsOpaque, colorsOpaque, indicesOpaque, opaqueMaterial);
+
+    const opaqueMesh = addMeshFromArrays(
+      positionsOpaque,
+      normalsOpaque,
+      uvsOpaque,
+      colorsOpaque,
+      indicesOpaque,
+      opaqueMaterial,
+    );
     if (opaqueMesh) meshes.push(opaqueMesh);
 
-    // transparent mesh (render after opaques)
     if (positionsTransparent.length > 0) {
       const transMaterial = this.material.clone();
       transMaterial.side = THREE.DoubleSide;
       transMaterial.transparent = true;
       transMaterial.depthWrite = false;
       transMaterial.blending = THREE.NormalBlending;
-      const transMesh = addMeshFromArrays(positionsTransparent, normalsTransparent, uvsTransparent, colorsTransparent, indicesTransparent, transMaterial);
+
+      const transMesh = addMeshFromArrays(
+        positionsTransparent,
+        normalsTransparent,
+        uvsTransparent,
+        colorsTransparent,
+        indicesTransparent,
+        transMaterial,
+      );
       if (transMesh) {
         transMesh.renderOrder = 1;
         meshes.push(transMesh);
@@ -184,26 +247,7 @@ export class MeshBuilder {
     }
 
     chunk.meshes = meshes;
-    // keep a reference to the first mesh for legacy code that expects chunk.mesh
     chunk.mesh = meshes[0];
-    chunk.dirty = false;
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
-    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
-    geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    // Use 32-bit index buffer when vertex count exceeds 65535 to avoid GL errors on some platforms
-    if (vertexCount > 65535 && typeof Uint32Array !== "undefined") {
-      geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
-    } else {
-      geometry.setIndex(indices);
-    }
-
-    const mesh = new THREE.Mesh(geometry, this.material);
-    mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
-    this.scene.add(mesh);
-
-    chunk.mesh = mesh;
     chunk.dirty = false;
   }
 

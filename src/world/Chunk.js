@@ -51,13 +51,21 @@ export class Chunk {
   }
 
   dispose() {
-    if (!this.mesh) return;
-    try {
-      if (this.mesh.geometry && this.mesh.geometry.dispose) this.mesh.geometry.dispose();
-      if (this.mesh.material && this.mesh.material.dispose) this.mesh.material.dispose();
-      if (this.mesh.parent && typeof this.mesh.parent.remove === "function") this.mesh.parent.remove(this.mesh);
-    } finally {
-      this.mesh = null;
+    const disposeMesh = (mesh) => {
+      if (!mesh) return;
+      if (mesh.geometry && mesh.geometry.dispose) mesh.geometry.dispose();
+      if (mesh.material && mesh.material.dispose) mesh.material.dispose();
+      if (mesh.parent && typeof mesh.parent.remove === "function") mesh.parent.remove(mesh);
+    };
+
+    if (this.meshes) {
+      for (const mesh of this.meshes) {
+        disposeMesh(mesh);
+      }
+      this.meshes = null;
     }
+
+    disposeMesh(this.mesh);
+    this.mesh = null;
   }
 }
