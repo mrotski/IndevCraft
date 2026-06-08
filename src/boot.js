@@ -1,7 +1,7 @@
 const loading = document.getElementById("loading");
 
 const BABYLON_URLS = [
-  "./vendor/babylon.js",
+  new URL("../vendor/babylon.js", import.meta.url).href,
   "https://cdn.babylonjs.com/babylon.js",
   "https://unpkg.com/babylonjs@7.54.2/babylon.js",
 ];
