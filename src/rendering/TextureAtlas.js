@@ -55,9 +55,9 @@ export async function loadTextureAtlas() {
     const inset = 0.001;
     tiles.set(key, {
       u0: x / width + inset,
-      v0: y / height + inset,
+      v0: 1 - (y + TILE_SIZE) / height + inset,
       u1: (x + TILE_SIZE) / width - inset,
-      v1: (y + TILE_SIZE) / height - inset,
+      v1: 1 - y / height - inset,
     });
 
     previews.set(key, createPreviewUrl(context, x, y));
