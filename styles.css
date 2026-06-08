@@ -167,3 +167,85 @@ body {
 #loading.hidden {
   display: none;
 }
+
+#pauseMenu {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  text-shadow: 2px 2px 0 #1b1b1b;
+  z-index: 999;
+}
+
+#pauseMenu.open {
+  display: grid;
+}
+
+.pause-panel {
+  display: none;
+  width: min(360px, calc(100vw - 32px));
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 3px solid rgba(255, 255, 255, 0.45);
+}
+
+.pause-panel.wide {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.pause-panel.active {
+  display: grid;
+  gap: 10px;
+}
+
+.pause-panel h1 {
+  margin: 0 0 6px;
+  font-size: 34px;
+  font-weight: 400;
+  text-align: center;
+}
+
+.pause-panel button,
+.pause-panel input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 2px solid #2b2b2b;
+  background: rgba(80, 80, 80, 0.95);
+  color: white;
+  font: inherit;
+  font-size: 24px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.pause-panel button:hover,
+.pause-panel input:focus {
+  border-color: white;
+  outline: none;
+}
+
+#worldList {
+  display: grid;
+  gap: 7px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.world-entry {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.world-entry strong {
+  font-weight: 400;
+  font-size: 25px;
+}
+
+.world-entry span,
+.world-empty {
+  font-size: 18px;
+  opacity: 0.9;
+}

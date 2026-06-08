@@ -6,6 +6,7 @@ export const UNLOAD_RADIUS = 3;
 export const MAX_LIGHT = 15;
 export const TARGET_FPS = 999;
 export const SAVE_KEY = "indev-unlimited-save-v1";
+export const SAVE_INDEX_KEY = "indev-unlimited-world-index-v1";
 
 export const FACE_DIRECTIONS = [
   { name: "north", normal: [0, 0, -1], offset: [0, 0, -1] },

@@ -55,12 +55,13 @@ export async function loadTextureAtlas(scene) {
       }
     }
 
-    const inset = 0.001;
+    const insetU = 0.5 / width;
+    const insetV = 0.5 / height;
     tiles.set(key, {
-      u0: x / width + inset,
-      v0: y / height + inset,
-      u1: (x + TILE_SIZE) / width - inset,
-      v1: (y + TILE_SIZE) / height - inset,
+      u0: x / width + insetU,
+      v0: y / height + insetV,
+      u1: (x + TILE_SIZE) / width - insetU,
+      v1: (y + TILE_SIZE) / height - insetV,
     });
 
     previews.set(key, createPreviewUrl(context, x, y));

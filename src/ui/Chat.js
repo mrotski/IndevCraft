@@ -9,7 +9,10 @@ export class Chat {
     this.addMessage("Press T to chat. Try /tp 0 80 0 or /tp 500 500.");
 
     document.addEventListener("keydown", (event) => {
-      if (!this.open && event.code === "KeyT") {
+      const activeElement = document.activeElement;
+      const isTyping = activeElement && (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA" || activeElement.isContentEditable);
+
+      if (!this.open && !isTyping && event.code === "KeyT") {
         event.preventDefault();
         this.show();
         return;

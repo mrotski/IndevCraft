@@ -63,8 +63,8 @@ export class MeshBuilder {
     material.diffuseTexture = this.textureAtlas.texture;
     material.diffuseTexture.hasAlpha = true;
     material.useAlphaFromDiffuseTexture = true;
-    material.transparencyMode = BABYLON.Material.MATERIAL_ALPHATEST;
-    material.alphaCutOff = 0.12;
+    material.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
+    material.needAlphaBlending = true;
     material.specularColor = BABYLON.Color3.Black();
     material.emissiveColor = new BABYLON.Color3(0.02, 0.02, 0.02);
     material.backFaceCulling = true;
@@ -100,9 +100,13 @@ export class MeshBuilder {
 
     if (chunk.mesh) chunk.mesh.dispose();
     const mesh = new BABYLON.Mesh(`chunk-${chunk.cx}-${chunk.cz}`, this.scene);
-    mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
+    mesh.position.set(
+      chunk.cx * CHUNK_SIZE - this.chunkManager.worldOrigin.x,
+      -this.chunkManager.worldOrigin.y,
+      chunk.cz * CHUNK_SIZE - this.chunkManager.worldOrigin.z,
+    );
     mesh.material = this.material;
-    mesh.hasVertexAlpha = false;
+    mesh.hasVertexAlpha = true;
     mesh.alwaysSelectAsActiveMesh = false;
 
     const vertexData = new BABYLON.VertexData();
@@ -144,7 +148,7 @@ export class MeshBuilder {
 
     for (let index = 0; index < vertices.length; index++) {
       const point = vertices[index];
-      positions.push(x + point[0], y + point[1], z + point[2]);
+      positions.push(x + vertexOffset(point[0]), y + vertexOffset(point[1]), z + vertexOffset(point[2]));
       normals.push(face.normal[0], face.normal[1], face.normal[2]);
       colors.push(color[0] * shade, color[1] * shade, color[2] * shade, alpha);
       uvs.push(faceUvs[index][0], faceUvs[index][1]);
