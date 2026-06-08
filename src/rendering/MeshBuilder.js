@@ -63,7 +63,7 @@ export class MeshBuilder {
       vertexColors: true,
       transparent: true,
       alphaTest: 0.05,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
     });
   }
 
@@ -75,53 +75,118 @@ export class MeshBuilder {
     const uvs = [];
     let vertex = 0;
 
+    // Separate opaque and transparent geometry to render transparents correctly
+    const positionsOpaque = [];
+    const indicesOpaque = [];
+    const normalsOpaque = [];
+    const colorsOpaque = [];
+    const uvsOpaque = [];
+    let vertexOpaque = 0;
+
+    const positionsTransparent = [];
+    const indicesTransparent = [];
+    const normalsTransparent = [];
+    const colorsTransparent = [];
+    const uvsTransparent = [];
+    let vertexTransparent = 0;
+    
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const block = chunk.getBlock(x, y, z);
           if (block === Blocks.AIR) continue;
           const data = BlockData[block];
+          const isTrans = !!data?.transparent;
           if (data.crossed) {
-            vertex = this.addCrossedBlock(chunk, x, y, z, block, positions, normals, indices, colors, uvs, vertex);
+            if (isTrans) {
+              vertexTransparent = this.addCrossedBlock(chunk, x, y, z, block, positionsTransparent, normalsTransparent, indicesTransparent, colorsTransparent, uvsTransparent, vertexTransparent);
+            } else {
+              vertexOpaque = this.addCrossedBlock(chunk, x, y, z, block, positionsOpaque, normalsOpaque, indicesOpaque, colorsOpaque, uvsOpaque, vertexOpaque);
+            }
             continue;
           }
           for (const face of FACE_DIRECTIONS) {
             if (!this.shouldRenderFace(chunk, x, y, z, face)) continue;
-            vertex = this.addFace(chunk, x, y, z, block, face, positions, normals, indices, colors, uvs, vertex);
-          }
+            if (isTrans) {
+              vertexTransparent = this.addFace(chunk, x, y, z, block, face, positionsTransparent, normalsTransparent, indicesTransparent, colorsTransparent, uvsTransparent, vertexTransparent);
+            } else {
+              vertexOpaque = this.addFace(chunk, x, y, z, block, face, positionsOpaque, normalsOpaque, indicesOpaque, colorsOpaque, uvsOpaque, vertexOpaque);
+            }
         }
       }
     }
 
     if (chunk.mesh) {
-      chunk.mesh.geometry.dispose();
-      this.scene.remove(chunk.mesh);
+    // remove previous mesh(es)
+    if (chunk.mesh) {
+      if (chunk.mesh.geometry && chunk.mesh.geometry.dispose) chunk.mesh.geometry.dispose();
+      if (chunk.mesh.material && chunk.mesh.material.dispose) chunk.mesh.material.dispose();
+      if (chunk.mesh.parent && typeof chunk.mesh.parent.remove === "function") chunk.mesh.parent.remove(chunk.mesh);
       chunk.mesh = null;
     }
 
-    if (positions.length === 0) {
+    const meshes = [];
+
+    const addMeshFromArrays = (positionsArr, normalsArr, uvsArr, colorsArr, indicesArr, material) => {
+      if (positionsArr.length === 0) return null;
+      const vertexCountLocal = positionsArr.length / 3;
+      if (normalsArr.length / 3 !== vertexCountLocal || colorsArr.length / 3 !== vertexCountLocal || uvsArr.length / 2 !== vertexCountLocal) {
+        console.error("MeshBuilder: attribute length mismatch (chunk)", {
+          positions: positionsArr.length,
+          normals: normalsArr.length,
+          colors: colorsArr.length,
+          uvs: uvsArr.length,
+          indices: indicesArr.length,
+        });
+        return null;
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positionsArr, 3));
+      geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normalsArr, 3));
+      geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvsArr, 2));
+      geometry.setAttribute("color", new THREE.Float32BufferAttribute(colorsArr, 3));
+      if (vertexCountLocal > 65535 && typeof Uint32Array !== "undefined") {
+        geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indicesArr), 1));
+      } else {
+        geometry.setIndex(indicesArr);
+      }
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
+      this.scene.add(mesh);
+      return mesh;
+    };
+
+    // opaque mesh (front-side, depth write)
+    const opaqueMaterial = this.material.clone();
+    opaqueMaterial.side = THREE.FrontSide;
+    opaqueMaterial.transparent = false;
+    opaqueMaterial.depthWrite = true;
+    const opaqueMesh = addMeshFromArrays(positionsOpaque, normalsOpaque, uvsOpaque, colorsOpaque, indicesOpaque, opaqueMaterial);
+    if (opaqueMesh) meshes.push(opaqueMesh);
+
+    // transparent mesh (render after opaques)
+    if (positionsTransparent.length > 0) {
+      const transMaterial = this.material.clone();
+      transMaterial.side = THREE.DoubleSide;
+      transMaterial.transparent = true;
+      transMaterial.depthWrite = false;
+      transMaterial.blending = THREE.NormalBlending;
+      const transMesh = addMeshFromArrays(positionsTransparent, normalsTransparent, uvsTransparent, colorsTransparent, indicesTransparent, transMaterial);
+      if (transMesh) {
+        transMesh.renderOrder = 1;
+        meshes.push(transMesh);
+      }
+    }
+
+    if (meshes.length === 0) {
       chunk.dirty = false;
       return;
     }
 
-    const vertexCount = positions.length / 3;
-    if (vertexCount === 0) {
-      chunk.dirty = false;
-      return;
-    }
-
-    if (normals.length / 3 !== vertexCount || colors.length / 3 !== vertexCount || uvs.length / 2 !== vertexCount) {
-      console.error("MeshBuilder: attribute length mismatch", {
-        positions: positions.length,
-        normals: normals.length,
-        colors: colors.length,
-        uvs: uvs.length,
-        indices: indices.length,
-      });
-      chunk.dirty = false;
-      return;
-    }
-
+    chunk.meshes = meshes;
+    // keep a reference to the first mesh for legacy code that expects chunk.mesh
+    chunk.mesh = meshes[0];
+    chunk.dirty = false;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
@@ -174,7 +239,8 @@ export class MeshBuilder {
       uvs.push(faceUvs[index][0], faceUvs[index][1]);
     }
 
-    indices.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2);
+    // Standard winding (0,1,2) and (0,2,3)
+    indices.push(vertex, vertex + 1, vertex + 2, vertex, vertex + 2, vertex + 3);
     return vertex + 4;
   }
 
@@ -211,8 +277,8 @@ export class MeshBuilder {
         colors.push(color[0] * shade, color[1] * shade, color[2] * shade);
         uvs.push(faceUvs[index][0], faceUvs[index][1]);
       }
-      indices.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2);
-      indices.push(vertex + 1, vertex + 2, vertex, vertex + 2, vertex + 3, vertex);
+      // Standard winding per quad
+      indices.push(vertex, vertex + 1, vertex + 2, vertex, vertex + 2, vertex + 3);
       vertex += 4;
     }
     return vertex;

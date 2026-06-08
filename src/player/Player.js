@@ -33,7 +33,8 @@ export class Player {
   }
 
   updateRotation() {
-    this.camera.rotation.x = this.controls.pitch;
+    // Invert pitch for camera so mouse Y feels natural
+    this.camera.rotation.x = -this.controls.pitch;
     this.camera.rotation.y = this.controls.yaw;
     this.camera.rotation.z = 0;
   }
@@ -170,10 +171,11 @@ export class Player {
   }
 
   getViewDirection() {
-    const horizontal = Math.cos(this.controls.pitch);
+    const pitch = this.controls.pitch;
+    const horizontal = Math.cos(pitch);
     return new THREE.Vector3(
       Math.sin(this.controls.yaw) * horizontal,
-      -Math.sin(this.controls.pitch),
+      Math.sin(pitch),
       Math.cos(this.controls.yaw) * horizontal,
     ).normalize();
   }
