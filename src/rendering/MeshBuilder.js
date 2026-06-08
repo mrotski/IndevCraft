@@ -63,7 +63,7 @@ export class MeshBuilder {
       vertexColors: true,
       transparent: true,
       alphaTest: 0.05,
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
     });
   }
 
@@ -104,12 +104,35 @@ export class MeshBuilder {
       return;
     }
 
+    const vertexCount = positions.length / 3;
+    if (vertexCount === 0) {
+      chunk.dirty = false;
+      return;
+    }
+
+    if (normals.length / 3 !== vertexCount || colors.length / 3 !== vertexCount || uvs.length / 2 !== vertexCount) {
+      console.error("MeshBuilder: attribute length mismatch", {
+        positions: positions.length,
+        normals: normals.length,
+        colors: colors.length,
+        uvs: uvs.length,
+        indices: indices.length,
+      });
+      chunk.dirty = false;
+      return;
+    }
+
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
     geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
     geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    geometry.setIndex(indices);
+    // Use 32-bit index buffer when vertex count exceeds 65535 to avoid GL errors on some platforms
+    if (vertexCount > 65535 && typeof Uint32Array !== "undefined") {
+      geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+    } else {
+      geometry.setIndex(indices);
+    }
 
     const mesh = new THREE.Mesh(geometry, this.material);
     mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
