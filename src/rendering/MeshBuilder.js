@@ -58,18 +58,13 @@ export class MeshBuilder {
   }
 
   createMaterial() {
-    const material = new BABYLON.StandardMaterial("classic-voxel-material", this.scene);
-    material.diffuseColor = BABYLON.Color3.White();
-    material.diffuseTexture = this.textureAtlas.texture;
-    material.diffuseTexture.hasAlpha = true;
-    material.useAlphaFromDiffuseTexture = true;
-    material.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
-    material.needAlphaBlending = true;
-    material.specularColor = BABYLON.Color3.Black();
-    material.emissiveColor = new BABYLON.Color3(0.02, 0.02, 0.02);
-    material.backFaceCulling = true;
-    material.disableLighting = false;
-    return material;
+    return new THREE.MeshBasicMaterial({
+      map: this.textureAtlas.texture,
+      vertexColors: true,
+      transparent: true,
+      alphaTest: 0.05,
+      side: THREE.FrontSide,
+    });
   }
 
   build(chunk) {
@@ -98,20 +93,27 @@ export class MeshBuilder {
       }
     }
 
-    if (chunk.mesh) chunk.mesh.dispose();
-    const mesh = new BABYLON.Mesh(`chunk-${chunk.cx}-${chunk.cz}`, this.scene);
-    mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
-    mesh.material = this.material;
-    mesh.hasVertexAlpha = true;
-    mesh.alwaysSelectAsActiveMesh = false;
+    if (chunk.mesh) {
+      chunk.mesh.geometry.dispose();
+      this.scene.remove(chunk.mesh);
+      chunk.mesh = null;
+    }
 
-    const vertexData = new BABYLON.VertexData();
-    vertexData.positions = positions;
-    vertexData.indices = indices;
-    vertexData.normals = normals;
-    vertexData.colors = colors;
-    vertexData.uvs = uvs;
-    vertexData.applyToMesh(mesh, true);
+    if (positions.length === 0) {
+      chunk.dirty = false;
+      return;
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
+
+    const mesh = new THREE.Mesh(geometry, this.material);
+    mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
+    this.scene.add(mesh);
 
     chunk.mesh = mesh;
     chunk.dirty = false;
@@ -134,7 +136,6 @@ export class MeshBuilder {
     const uv = this.textureAtlas.getUV(getBlockTextureKey(block, face.name));
     const light = this.getFaceLight(chunk, x, y, z, face.offset);
     const shade = FACE_SHADE[face.name] * (0.24 + 0.76 * (light / 15));
-    const alpha = BlockData[block].alpha ?? 1;
     const faceUvs = [
       [uv.u1, uv.v1],
       [uv.u0, uv.v1],
@@ -146,9 +147,10 @@ export class MeshBuilder {
       const point = vertices[index];
       positions.push(x + point[0], y + point[1], z + point[2]);
       normals.push(face.normal[0], face.normal[1], face.normal[2]);
-      colors.push(color[0] * shade, color[1] * shade, color[2] * shade, alpha);
+      colors.push(color[0] * shade, color[1] * shade, color[2] * shade);
       uvs.push(faceUvs[index][0], faceUvs[index][1]);
     }
+
     indices.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2);
     return vertex + 4;
   }
@@ -183,7 +185,7 @@ export class MeshBuilder {
         const point = quad[index];
         positions.push(x + point[0], y + point[1], z + point[2]);
         normals.push(0, 1, 0);
-        colors.push(color[0] * shade, color[1] * shade, color[2] * shade, 1);
+        colors.push(color[0] * shade, color[1] * shade, color[2] * shade);
         uvs.push(faceUvs[index][0], faceUvs[index][1]);
       }
       indices.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2);

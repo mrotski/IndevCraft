@@ -1,34 +1,34 @@
 import { getBlockTextureKey } from "../blocks/BlockTypes.js";
 
 export class BlockParticles {
-  constructor(scene, textureAtlas) {
+  constructor(scene, textureAtlas, camera) {
     this.scene = scene;
     this.textureAtlas = textureAtlas;
+    this.camera = camera;
     this.materials = new Map();
     this.particles = [];
+    this.textureLoader = new THREE.TextureLoader();
   }
 
   burst(blockId, worldX, worldY, worldZ) {
     const textureKey = getBlockTextureKey(blockId, "top");
     const material = this.getMaterial(textureKey);
-    const center = new BABYLON.Vector3(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
+    const center = new THREE.Vector3(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
 
     for (let index = 0; index < 18; index++) {
-      const mesh = BABYLON.MeshBuilder.CreatePlane(
-        `break-particle-${index}`,
-        { size: 0.16 + Math.random() * 0.08 },
-        this.scene,
-      );
-      mesh.material = material;
-      mesh.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
-      mesh.position.copyFrom(center);
-      mesh.position.addInPlace(new BABYLON.Vector3(
+      const size = 0.16 + Math.random() * 0.08;
+      const geometry = new THREE.PlaneGeometry(size, size);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.copy(center);
+      mesh.position.add(new THREE.Vector3(
         (Math.random() - 0.5) * 0.75,
         (Math.random() - 0.5) * 0.75,
         (Math.random() - 0.5) * 0.75,
       ));
+      mesh.lookAt(this.camera.position);
+      this.scene.add(mesh);
 
-      const velocity = new BABYLON.Vector3(
+      const velocity = new THREE.Vector3(
         (Math.random() - 0.5) * 3.0,
         2.0 + Math.random() * 2.2,
         (Math.random() - 0.5) * 3.0,
@@ -48,11 +48,14 @@ export class BlockParticles {
       const particle = this.particles[index];
       particle.age += deltaSeconds;
       particle.velocity.y -= 9.8 * deltaSeconds;
-      particle.mesh.position.addInPlace(particle.velocity.scale(deltaSeconds));
-      particle.mesh.scaling.setAll(Math.max(0.05, 1 - particle.age / particle.lifetime));
+      particle.mesh.position.addScaledVector(particle.velocity, deltaSeconds);
+      particle.mesh.lookAt(this.camera.position);
+      const scale = Math.max(0.05, 1 - particle.age / particle.lifetime);
+      particle.mesh.scale.set(scale, scale, scale);
 
       if (particle.age >= particle.lifetime) {
-        particle.mesh.dispose();
+        particle.mesh.geometry.dispose();
+        this.scene.remove(particle.mesh);
         this.particles.splice(index, 1);
       }
     }
@@ -61,21 +64,19 @@ export class BlockParticles {
   getMaterial(textureKey) {
     if (this.materials.has(textureKey)) return this.materials.get(textureKey);
 
-    const material = new BABYLON.StandardMaterial(`particle-${textureKey}`, this.scene);
-    material.diffuseTexture = new BABYLON.Texture(
-      this.textureAtlas.getPreviewURL(textureKey),
-      this.scene,
-      false,
-      false,
-      BABYLON.Texture.NEAREST_SAMPLINGMODE,
-    );
-    material.diffuseTexture.hasAlpha = true;
-    material.useAlphaFromDiffuseTexture = true;
-    material.transparencyMode = BABYLON.Material.MATERIAL_ALPHATEST;
-    material.alphaCutOff = 0.12;
-    material.specularColor = BABYLON.Color3.Black();
-    material.emissiveColor = new BABYLON.Color3(0.08, 0.08, 0.08);
-    material.backFaceCulling = false;
+    const url = this.textureAtlas.getPreviewURL(textureKey);
+    const texture = this.textureLoader.load(url);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      alphaTest: 0.12,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
     this.materials.set(textureKey, material);
     return material;
   }

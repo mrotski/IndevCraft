@@ -17,24 +17,21 @@ const TEXTURE_SOURCES = {
   glass: { src: "../glass_all_sides.png", fallback: "#ffffff00" },
 };
 
-export async function loadTextureAtlas(scene) {
+export async function loadTextureAtlas() {
   const keys = Object.keys(TEXTURE_SOURCES);
   const columns = 4;
   const rows = Math.ceil(keys.length / columns);
   const width = columns * TILE_SIZE;
   const height = rows * TILE_SIZE;
-  const dynamicTexture = new BABYLON.DynamicTexture(
-    "classic-block-atlas",
-    { width, height },
-    scene,
-    false,
-    BABYLON.Texture.NEAREST_SAMPLINGMODE,
-  );
-  const context = dynamicTexture.getContext();
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
   context.imageSmoothingEnabled = false;
 
   const tiles = new Map();
   const previews = new Map();
+
   for (let index = 0; index < keys.length; index++) {
     const key = keys[index];
     const column = index % columns;
@@ -66,13 +63,14 @@ export async function loadTextureAtlas(scene) {
     previews.set(key, createPreviewUrl(context, x, y));
   }
 
-  dynamicTexture.update(false);
-  dynamicTexture.hasAlpha = true;
-  dynamicTexture.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
-  dynamicTexture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
 
   return {
-    texture: dynamicTexture,
+    texture,
     getUV(key) {
       return tiles.get(key) ?? tiles.get("stone");
     },

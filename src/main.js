@@ -14,30 +14,25 @@ export async function startGame() {
   const canvas = document.getElementById("gameCanvas");
   const loading = document.getElementById("loading");
 
-  if (!window.BABYLON) {
-    loading.innerHTML = "<strong>Babylon.js failed to load.</strong><span>Check your network connection and reload.</span>";
-    throw new Error("Babylon.js unavailable");
+  if (!window.THREE) {
+    loading.innerHTML = "<strong>Three.js failed to load.</strong><span>Check your network connection and reload.</span>";
+    throw new Error("Three.js unavailable");
   }
 
-  const engine = new BABYLON.Engine(canvas, true, {
-    preserveDrawingBuffer: false,
-    stencil: false,
-    antialias: false,
-    powerPreference: "high-performance",
-  });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
 
-  const scene = new BABYLON.Scene(engine);
-  scene.clearColor = new BABYLON.Color4(0.43, 0.65, 0.85, 1);
-  scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
-  scene.fogColor = new BABYLON.Color3(0.43, 0.65, 0.85);
-  scene.fogStart = 34;
-  scene.fogEnd = 70;
-  scene.collisionsEnabled = false;
-  scene.skipPointerMovePicking = true;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x6faddb);
+  scene.fog = new THREE.Fog(0x6faddb, 34, 70);
 
-  const sun = new BABYLON.HemisphericLight("indev-sky-light", new BABYLON.Vector3(0.25, 1, 0.15), scene);
-  sun.intensity = 0.82;
-  sun.groundColor = new BABYLON.Color3(0.28, 0.25, 0.23);
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 64, 0);
+
+  const sun = new THREE.HemisphereLight(0xffffff, 0x443322, 0.9);
+  scene.add(sun);
 
   const saveManager = new SaveManager();
   if (!saveManager.data) {
@@ -45,7 +40,7 @@ export async function startGame() {
     saveManager.create(seed);
   }
 
-  const textureAtlas = await loadTextureAtlas(scene);
+  const textureAtlas = await loadTextureAtlas();
   const chunkManager = new ChunkManager(scene, saveManager, saveManager.seed, textureAtlas);
   const savedPlayer = saveManager.getPlayer();
   const savedChunk = savedPlayer?.position
@@ -87,9 +82,9 @@ export async function startGame() {
     savedPlayer.position.length === 3 &&
     savedPlayer.position[1] > 2 &&
     savedPlayer.position[1] < WORLD_HEIGHT - 2 &&
-    canPlayerOccupy(new BABYLON.Vector3(...savedPlayer.position), chunkManager);
+    canPlayerOccupy(new THREE.Vector3(...savedPlayer.position), chunkManager);
   const startPosition = hasValidSavedPosition
-    ? new BABYLON.Vector3(...savedPlayer.position)
+    ? new THREE.Vector3(...savedPlayer.position)
     : chunkManager.findSpawn();
 
   if (hasValidSavedPosition && savedPlayer?.rotation) {
@@ -97,7 +92,7 @@ export async function startGame() {
     controls.yaw = savedPlayer.rotation[1];
   }
 
-  const player = new Player(scene, canvas, chunkManager, controls, startPosition);
+  const player = new Player(camera, canvas, chunkManager, controls, startPosition);
   const hud = new HUD(saveManager.seed, textureAtlas);
   const blockParticles = new BlockParticles(scene, textureAtlas);
   const chat = new Chat({
@@ -163,37 +158,49 @@ export async function startGame() {
     }
     if (event.code === "KeyR") {
       event.preventDefault();
-      player.position.copyFrom(chunkManager.findSpawn());
+      player.position.copy(chunkManager.findSpawn());
       player.velocity.set(0, 0, 0);
       saveWorld();
     }
   });
 
-  window.addEventListener("resize", () => engine.resize());
+  function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  window.addEventListener("resize", onResize);
   window.addEventListener("beforeunload", () => saveWorld());
 
   let renderedFrames = 0;
   let lastFrameTime = 0;
   const targetFrameMs = 1000 / TARGET_FPS;
-  engine.runRenderLoop(() => {
+
+  function animate() {
+    requestAnimationFrame(animate);
     const now = performance.now();
     if (lastFrameTime > 0 && now - lastFrameTime < targetFrameMs) return;
     const deltaSeconds = lastFrameTime > 0 ? Math.min((now - lastFrameTime) / 1000, 0.05) : targetFrameMs / 1000;
+    const fps = lastFrameTime > 0 ? Math.round(1000 / (now - lastFrameTime)) : TARGET_FPS;
     lastFrameTime = now;
+
     player.update(deltaSeconds);
     blockParticles.update(deltaSeconds);
     chunkManager.update(player.position);
-    hud.update(scene, player, chunkManager);
-    scene.render();
+    hud.update(fps, player, chunkManager);
+    renderer.render(scene, player.camera);
 
     renderedFrames++;
     if (renderedFrames >= 2) {
       loading.classList.add("hidden");
     }
-  });
+  }
+
+  animate();
 
   function saveWorld() {
-    saveManager.setPlayer(player.position, new BABYLON.Vector2(controls.pitch, controls.yaw));
+    saveManager.setPlayer(player.position, new THREE.Vector2(controls.pitch, controls.yaw));
     saveManager.flush();
   }
 }
@@ -211,7 +218,7 @@ function runCommand(command, player, chunkManager, saveWorld) {
     if (values.length === 2) {
       const [x, z] = values;
       chunkManager.prepareAreaAround(x, z);
-      player.position.copyFrom(chunkManager.findSurfacePosition(x, z));
+      player.position.copy(chunkManager.findSurfacePosition(x, z));
     } else if (values.length === 3) {
       const [x, y, z] = values;
       chunkManager.prepareAreaAround(x, z);

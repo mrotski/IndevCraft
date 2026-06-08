@@ -161,6 +161,8 @@ export class ChunkManager {
     this.meshBuilder.build(chunk);
     return true;
   }
+
+  getSunLight(worldX, worldY, worldZ) {
     if (worldY < 0 || worldY >= WORLD_HEIGHT) return 0;
     const { cx, cz, lx, lz } = this.worldToLocal(worldX, worldZ);
     const chunk = this.chunks.get(this.key(cx, cz));
@@ -184,10 +186,10 @@ export class ChunkManager {
     for (let y = WORLD_HEIGHT - 2; y > SEA_LEVEL; y--) {
       const block = this.getBlock(worldX, y, worldZ);
       if (block !== Blocks.AIR && block !== Blocks.WATER) {
-        return new BABYLON.Vector3(Math.floor(worldX) + 0.5, y + 3, Math.floor(worldZ) + 0.5);
+        return new THREE.Vector3(Math.floor(worldX) + 0.5, y + 3, Math.floor(worldZ) + 0.5);
       }
     }
-    return new BABYLON.Vector3(Math.floor(worldX) + 0.5, SEA_LEVEL + 20, Math.floor(worldZ) + 0.5);
+    return new THREE.Vector3(Math.floor(worldX) + 0.5, SEA_LEVEL + 20, Math.floor(worldZ) + 0.5);
   }
 
   prepareAreaAround(worldX, worldZ, budget = 25) {

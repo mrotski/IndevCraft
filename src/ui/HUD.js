@@ -68,13 +68,13 @@ export class HUD {
     this.root.classList.toggle("gui-hidden");
   }
 
-  update(scene, player, chunkManager) {
+  update(fps, player, chunkManager) {
     const position = player.position;
     const chunkX = Math.floor(position.x / CHUNK_SIZE);
     const chunkZ = Math.floor(position.z / CHUNK_SIZE);
     const blockName = BlockData[this.getSelectedBlock()].name;
     this.debug.innerHTML = [
-      `FPS: ${Math.min(TARGET_FPS, Math.round(scene.getEngine().getFps()))}`,
+      `FPS: ${Math.min(TARGET_FPS, Math.round(fps))}`,
       `XYZ: ${position.x.toFixed(1)} / ${position.y.toFixed(1)} / ${position.z.toFixed(1)}`,
       `Chunk: ${chunkX}, ${chunkZ}`,
       `Loaded chunks: ${chunkManager.chunks.size}`,
