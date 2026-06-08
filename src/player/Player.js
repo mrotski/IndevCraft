@@ -6,7 +6,7 @@ const PLAYER_HEIGHT = 1.82;
 const EYE_HEIGHT = 1.62;
 
 export class Player {
-  constructor(scene, canvas, chunkManager, controls, startPosition, worldOrigin = new BABYLON.Vector3(0, 0, 0)) {
+  constructor(scene, canvas, chunkManager, controls, startPosition) {
     this.scene = scene;
     this.canvas = canvas;
     this.chunkManager = chunkManager;
@@ -15,11 +15,10 @@ export class Player {
     this.velocity = new BABYLON.Vector3(0, 0, 0);
     this.onGround = false;
     this.unstuckCooldown = 0;
-    this.worldOrigin = worldOrigin;
 
     this.camera = new BABYLON.FreeCamera("player-camera", this.position.clone(), scene);
     this.camera.minZ = 0.03;
-    this.camera.maxZ = 2000;
+    this.camera.maxZ = 650;
     this.camera.fov = 1.05;
     this.camera.inertia = 0;
     this.camera.attachControl(canvas, false);
@@ -171,15 +170,7 @@ export class Player {
   }
 
   updateCamera() {
-    this.camera.position.set(
-      this.position.x - this.worldOrigin.x,
-      this.position.y + EYE_HEIGHT - this.worldOrigin.y,
-      this.position.z - this.worldOrigin.z,
-    );
-  }
-
-  getEyePosition() {
-    return new BABYLON.Vector3(this.position.x, this.position.y + EYE_HEIGHT, this.position.z);
+    this.camera.position.set(this.position.x, this.position.y + EYE_HEIGHT, this.position.z);
   }
 
   getViewDirection() {

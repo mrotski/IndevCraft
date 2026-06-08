@@ -31,7 +31,7 @@ export async function startGame() {
   scene.fogMode = BABYLON.Scene.FOGMODE_LINEAR;
   scene.fogColor = new BABYLON.Color3(0.43, 0.65, 0.85);
   scene.fogStart = 34;
-  scene.fogEnd = 150;
+  scene.fogEnd = 70;
   scene.collisionsEnabled = false;
   scene.skipPointerMovePicking = true;
 
@@ -46,8 +46,7 @@ export async function startGame() {
   }
 
   const textureAtlas = await loadTextureAtlas(scene);
-  const worldOrigin = new BABYLON.Vector3(0, 0, 0);
-  const chunkManager = new ChunkManager(scene, saveManager, saveManager.seed, textureAtlas, worldOrigin);
+  const chunkManager = new ChunkManager(scene, saveManager, saveManager.seed, textureAtlas);
   const savedPlayer = saveManager.getPlayer();
   const savedChunk = savedPlayer?.position
     ? chunkManager.worldToChunk(savedPlayer.position[0], savedPlayer.position[2])
@@ -98,7 +97,7 @@ export async function startGame() {
     controls.yaw = savedPlayer.rotation[1];
   }
 
-  const player = new Player(scene, canvas, chunkManager, controls, startPosition, worldOrigin);
+  const player = new Player(scene, canvas, chunkManager, controls, startPosition);
   const hud = new HUD(saveManager.seed, textureAtlas);
   const blockParticles = new BlockParticles(scene, textureAtlas);
   const chat = new Chat({
@@ -115,7 +114,7 @@ export async function startGame() {
       canvas.requestPointerLock();
     }
     if (event.button !== 0 && event.button !== 2) return;
-    const hit = chunkManager.raycast(player.getEyePosition(), player.getViewDirection(), 8);
+    const hit = chunkManager.raycast(player.camera.position, player.getViewDirection(), 8);
     if (!hit) return;
 
     if (event.button === 0) {
@@ -176,27 +175,12 @@ export async function startGame() {
   let renderedFrames = 0;
   let lastFrameTime = 0;
   const targetFrameMs = 1000 / TARGET_FPS;
-  const originStep = 128;
-  const targetOrigin = new BABYLON.Vector3(0, 0, 0);
-
-  function recenterWorldOrigin() {
-    targetOrigin.x = Math.floor(player.position.x / originStep) * originStep;
-    targetOrigin.y = Math.floor(player.position.y / originStep) * originStep;
-    targetOrigin.z = Math.floor(player.position.z / originStep) * originStep;
-    const delta = targetOrigin.subtract(worldOrigin);
-    if (delta.lengthSquared() === 0) return;
-    worldOrigin.copyFrom(targetOrigin);
-    chunkManager.shiftWorldOrigin(delta);
-    player.updateCamera();
-  }
-
   engine.runRenderLoop(() => {
     const now = performance.now();
     if (lastFrameTime > 0 && now - lastFrameTime < targetFrameMs) return;
     const deltaSeconds = lastFrameTime > 0 ? Math.min((now - lastFrameTime) / 1000, 0.05) : targetFrameMs / 1000;
     lastFrameTime = now;
     player.update(deltaSeconds);
-    recenterWorldOrigin();
     blockParticles.update(deltaSeconds);
     chunkManager.update(player.position);
     hud.update(scene, player, chunkManager);

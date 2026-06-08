@@ -8,7 +8,7 @@ import { LightEngine } from "./LightEngine.js";
 import { MeshBuilder } from "../rendering/MeshBuilder.js";
 
 export class ChunkManager {
-  constructor(scene, saveManager, seed, textureAtlas, worldOrigin = new BABYLON.Vector3(0, 0, 0)) {
+  constructor(scene, saveManager, seed, textureAtlas) {
     this.scene = scene;
     this.saveManager = saveManager;
     this.seed = seed >>> 0;
@@ -17,7 +17,6 @@ export class ChunkManager {
     this.terrain = new TerrainGenerator(this.seed);
     this.caves = new CaveGenerator(this.seed, this.terrain);
     this.lightEngine = new LightEngine();
-    this.worldOrigin = worldOrigin;
     this.meshBuilder = new MeshBuilder(scene, this, textureAtlas);
     this.renderDistance = LOAD_RADIUS;
   }
@@ -154,99 +153,14 @@ export class ChunkManager {
     const chunk = this.chunks.get(this.key(cx, cz));
     if (!chunk) return false;
     const y = Math.floor(worldY);
-    const oldBlock = chunk.getBlock(lx, y, lz);
     if (!chunk.setBlock(lx, y, lz, blockId)) return false;
     const localIndex = Chunk.index(lx, y, lz);
     this.saveManager.setBlockChange(this.key(cx, cz), localIndex, blockId);
     this.markNeighborsDirty(cx, cz);
     this.lightEngine.compute(chunk);
     this.meshBuilder.build(chunk);
-    if (oldBlock === Blocks.WATER || blockId === Blocks.WATER) {
-      this.updateWaterAround(worldX, worldY, worldZ);
-    }
     return true;
   }
-
-  setBlockDirect(worldX, worldY, worldZ, blockId) {
-    if (worldY < 0 || worldY >= WORLD_HEIGHT) return false;
-    const { cx, cz, lx, lz } = this.worldToLocal(worldX, worldZ);
-    const chunk = this.chunks.get(this.key(cx, cz));
-    if (!chunk) return false;
-    const y = Math.floor(worldY);
-    if (!chunk.setBlock(lx, y, lz, blockId)) return false;
-    const localIndex = Chunk.index(lx, y, lz);
-    this.saveManager.setBlockChange(this.key(cx, cz), localIndex, blockId);
-    this.markNeighborsDirty(cx, cz);
-    chunk.dirty = true;
-    return true;
-  }
-
-  updateWaterAround(worldX, worldY, worldZ, radius = 6) {
-    const minX = Math.floor(worldX) - radius;
-    const maxX = Math.floor(worldX) + radius;
-    const minY = Math.max(0, Math.floor(worldY) - radius);
-    const maxY = Math.min(WORLD_HEIGHT - 1, Math.floor(worldY) + radius);
-    const minZ = Math.floor(worldZ) - radius;
-    const maxZ = Math.floor(worldZ) + radius;
-    const queue = [];
-    const visited = new Set();
-
-    for (let y = minY; y <= maxY; y++) {
-      for (let z = minZ; z <= maxZ; z++) {
-        for (let x = minX; x <= maxX; x++) {
-          if (this.getBlock(x, y, z) === Blocks.WATER) {
-            const key = `${x},${y},${z}`;
-            queue.push({ x, y, z });
-            visited.add(key);
-          }
-        }
-      }
-    }
-
-    const directions = [
-      { dx: 0, dy: -1, dz: 0 },
-      { dx: 1, dy: 0, dz: 0 },
-      { dx: -1, dy: 0, dz: 0 },
-      { dx: 0, dy: 0, dz: 1 },
-      { dx: 0, dy: 0, dz: -1 },
-    ];
-
-    let steps = 12;
-    while (queue.length && steps-- > 0) {
-      const { x, y, z } = queue.shift();
-      if (this.getBlock(x, y, z) !== Blocks.WATER) continue;
-
-      const below = this.getBlock(x, y - 1, z);
-      if (y > 0 && below === Blocks.AIR) {
-        if (this.setBlockDirect(x, y, z, Blocks.AIR) && this.setBlockDirect(x, y - 1, z, Blocks.WATER)) {
-          const key = `${x},${y - 1},${z}`;
-          if (!visited.has(key)) {
-            queue.push({ x, y: y - 1, z });
-            visited.add(key);
-          }
-        }
-        continue;
-      }
-
-      for (const direction of directions.slice(1)) {
-        const nx = x + direction.dx;
-        const ny = y + direction.dy;
-        const nz = z + direction.dz;
-        if (this.getBlock(nx, ny, nz) !== Blocks.AIR) continue;
-        const belowNeighbor = this.getBlock(nx, ny - 1, nz);
-        if (belowNeighbor === Blocks.AIR) continue;
-        if (this.setBlockDirect(nx, ny, nz, Blocks.WATER)) {
-          const key = `${nx},${ny},${nz}`;
-          if (!visited.has(key)) {
-            queue.push({ x: nx, y: ny, z: nz });
-            visited.add(key);
-          }
-        }
-      }
-    }
-  }
-
-  getSunLight(worldX, worldY, worldZ) {
     if (worldY < 0 || worldY >= WORLD_HEIGHT) return 0;
     const { cx, cz, lx, lz } = this.worldToLocal(worldX, worldZ);
     const chunk = this.chunks.get(this.key(cx, cz));
