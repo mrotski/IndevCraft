@@ -6,29 +6,10 @@ export class Atmosphere {
     this.sunLight = sunLight;
     this.fogEnabled = true;
 
-    this.daySky = new THREE.Color(0x6faddb);
-    this.nightSky = new THREE.Color(0x081326);
-    this.dayFog = new THREE.Color(0x6faddb);
-    this.nightFog = new THREE.Color(0x0b1327);
-
-    this.cloudTexture = createCloudTexture();
-    this.cloudTexture.wrapS = THREE.RepeatWrapping;
-    this.cloudTexture.wrapT = THREE.RepeatWrapping;
-    this.cloudTexture.magFilter = THREE.NearestFilter;
-    this.cloudTexture.minFilter = THREE.NearestFilter;
-    this.cloudTexture.generateMipmaps = false;
-
-    this.cloudMaterial = new THREE.MeshBasicMaterial({
-      map: this.cloudTexture,
-      transparent: false,
-      depthWrite: true,
-      side: THREE.DoubleSide,
-    });
-
-    this.cloudPlane = new THREE.Mesh(new THREE.PlaneGeometry(420, 420, 1, 1), this.cloudMaterial);
-    this.cloudPlane.rotation.x = -Math.PI / 2;
-    this.cloudPlane.position.y = 92;
-    this.scene.add(this.cloudPlane);
+    this.daySky = new THREE.Color(0xcfd8dd);
+    this.nightSky = new THREE.Color(0x09111f);
+    this.dayFog = new THREE.Color(0xd6d8d6);
+    this.nightFog = new THREE.Color(0x0b1324);
 
     this.sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
       map: createCelestialTexture("sun"),
@@ -45,7 +26,6 @@ export class Atmosphere {
     }));
     this.moonSprite.scale.set(14, 14, 1);
     this.scene.add(this.moonSprite);
-
   }
 
   setFogEnabled(enabled) {
@@ -61,26 +41,29 @@ export class Atmosphere {
     const sunAngle = phase * Math.PI * 2 - Math.PI / 2;
     const sunFactor = Math.max(0, Math.sin(sunAngle));
     const moonFactor = Math.max(0, Math.sin(sunAngle + Math.PI));
-    const daylight = Math.pow(sunFactor, 0.8);
-
+    const daylight = smoothstep(0.03, 0.88, sunFactor);
+    const nightBlend = smoothstep(0.08, 0.78, moonFactor);
     const skyColor = this.nightSky.clone().lerp(this.daySky, daylight);
+    skyColor.lerp(new THREE.Color(0x142438), nightBlend * 0.35);
     this.scene.background.copy(skyColor);
 
     if (this.fogEnabled) {
       if (!this.scene.fog) {
         this.scene.fog = new THREE.Fog(skyColor.getHex(), 28, 74);
       }
-      this.scene.fog.color.copy(skyColor);
-      this.scene.fog.near = lerp(24, 34, daylight);
-      this.scene.fog.far = lerp(52, 74, daylight);
+      const fogColor = this.nightFog.clone().lerp(this.dayFog, daylight);
+      fogColor.lerp(new THREE.Color(0x203044), nightBlend * 0.45);
+      this.scene.fog.color.copy(fogColor);
+      this.scene.fog.near = lerp(22, 34, daylight);
+      this.scene.fog.far = lerp(48, 78, daylight);
     }
 
-    this.sunLight.intensity = lerp(0.18, 0.9, daylight);
+    this.sunLight.intensity = lerp(0.12, 0.95, daylight);
     if (this.sunLight.color) {
-      this.sunLight.color.set(0xffffff).lerp(new THREE.Color(0xb4c8ff), 1 - daylight);
+      this.sunLight.color.set(0xfff6df).lerp(new THREE.Color(0x99b6ff), 1 - daylight);
     }
     if (this.sunLight.groundColor) {
-      this.sunLight.groundColor.set(0x443322).lerp(new THREE.Color(0x17141f), 1 - daylight);
+      this.sunLight.groundColor.set(0x4a3d2c).lerp(new THREE.Color(0x111a2b), 1 - daylight);
     }
 
     const radius = 132;
@@ -102,50 +85,11 @@ export class Atmosphere {
     this.moonSprite.material.opacity = 0.25 + 0.75 * moonFactor;
     this.sunSprite.position.copy(playerPosition).add(sunOffset);
     this.moonSprite.position.copy(playerPosition).add(moonOffset);
-
-    const cloudDrift = worldTimeMs * 0.00002;
-    this.cloudPlane.position.set(playerPosition.x + cloudDrift, 92, playerPosition.z + cloudDrift * 0.35);
-    const cloudTint = lerp(0.45, 1.0, daylight);
-    this.cloudMaterial.color.setRGB(cloudTint, cloudTint, cloudTint);
   }
 }
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
-}
-
-function createCloudTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false;
-
-  ctx.fillStyle = "#9fd4ff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = "#ffffff";
-  const clusters = [
-    [36, 64, 32], [88, 44, 30], [146, 70, 28], [210, 58, 34],
-    [52, 166, 30], [116, 140, 34], [184, 172, 28], [220, 178, 26],
-    [24, 226, 22], [92, 216, 30], [158, 218, 34], [214, 226, 22],
-  ];
-  for (const [x, y, size] of clusters) {
-    drawPuff(ctx, x, y, size);
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function drawPuff(ctx, x, y, size) {
-  const radii = [1.0, 0.78, 0.62];
-  for (let i = 0; i < radii.length; i++) {
-    ctx.beginPath();
-    ctx.ellipse(x + size * i * 0.36, y + (i === 1 ? -size * 0.12 : 0), size * radii[i], size * radii[i] * 0.58, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 function createCelestialTexture(kind) {
@@ -189,4 +133,9 @@ function createCelestialTexture(kind) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
   return texture;
+}
+
+function smoothstep(edge0, edge1, x) {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }

@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, LOAD_RADIUS, SEA_LEVEL, UNLOAD_RADIUS, WORLD_HEIGHT } from "../constants.js";
+import { CHUNK_SIZE, LOAD_RADIUS, SEA_LEVEL, WORLD_HEIGHT } from "../constants.js";
 import { Blocks } from "../blocks/BlockTypes.js";
 import { hash32, randomFloat } from "../utils/Random.js";
 import { Chunk } from "./Chunk.js";
@@ -76,7 +76,7 @@ export class ChunkManager {
   unloadFarChunks(centerCx, centerCz) {
     for (const [key, chunk] of this.chunks) {
       const distance = Math.max(Math.abs(chunk.cx - centerCx), Math.abs(chunk.cz - centerCz));
-      if (distance > UNLOAD_RADIUS) {
+      if (distance > this.renderDistance) {
         chunk.dispose();
         this.chunks.delete(key);
       }

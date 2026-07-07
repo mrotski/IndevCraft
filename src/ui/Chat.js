@@ -6,7 +6,7 @@ export class Chat {
     this.input = document.getElementById("chatInput");
     this.open = false;
 
-    this.addMessage("Press T to chat. Try /tp 0 80 0 or /tp 500 500.");
+    this.addMessage("Press T to chat. Try /tp 0 80 0, /tp 500 500, or /time set day.");
 
     document.addEventListener("keydown", (event) => {
       const activeElement = document.activeElement;

@@ -82,7 +82,7 @@ export async function startGame() {
   const blockParticles = new BlockParticles(scene, textureAtlas, camera);
   const chat = new Chat({
     onCommand(command) {
-      return runCommand(command, player, chunkManager, saveWorld);
+      return runCommand(command, player, chunkManager, saveWorld, setWorldTime);
     },
   });
 
@@ -225,9 +225,14 @@ export async function startGame() {
     saveManager.setWorldTime(worldTimeState.value);
     saveManager.flush();
   }
+
+  function setWorldTime(worldTimeMs) {
+    worldTimeState.value = Number.isFinite(worldTimeMs) ? worldTimeMs : 0;
+    atmosphere.update(player.position, worldTimeState.value, 0);
+  }
 }
 
-function runCommand(command, player, chunkManager, saveWorld) {
+function runCommand(command, player, chunkManager, saveWorld, setWorldTime) {
   const parts = command.slice(1).trim().split(/\s+/);
   const name = parts.shift()?.toLowerCase();
 
@@ -252,6 +257,30 @@ function runCommand(command, player, chunkManager, saveWorld) {
     player.velocity.set(0, 0, 0);
     saveWorld();
     return `Teleported to ${player.position.x.toFixed(1)} ${player.position.y.toFixed(1)} ${player.position.z.toFixed(1)}`;
+  }
+
+  if (name === "time") {
+    const subcommand = parts.shift()?.toLowerCase();
+    if (subcommand !== "set" || parts.length !== 1) {
+      return "Usage: /time set day|night|dawn|midnight";
+    }
+
+    const preset = parts[0].toLowerCase();
+    const cycleLength = 14 * 60 * 1000;
+    const timeMap = {
+      midnight: 0,
+      dawn: cycleLength * 0.25,
+      day: cycleLength * 0.5,
+      night: cycleLength * 0.75,
+    };
+
+    if (!(preset in timeMap)) {
+      return "Usage: /time set day|night|dawn|midnight";
+    }
+
+    setWorldTime(timeMap[preset]);
+    saveWorld();
+    return `Set time to ${preset}`;
   }
 
   return `Unknown command: /${name ?? ""}`;
