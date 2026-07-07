@@ -67,7 +67,12 @@ export class MeshBuilder {
     });
   }
 
-  build(chunk) {
+  build(chunk, lodLevel = 0) {
+    if (lodLevel > 0) {
+      this.buildLod(chunk, lodLevel);
+      return;
+    }
+
     const positionsOpaque = [];
     const indicesOpaque = [];
     const normalsOpaque = [];
@@ -251,6 +256,138 @@ export class MeshBuilder {
     chunk.dirty = false;
   }
 
+  buildLod(chunk, lodLevel) {
+    const step = 1 << lodLevel;
+    const cellsX = Math.ceil(CHUNK_SIZE / step);
+    const cellsZ = Math.ceil(CHUNK_SIZE / step);
+
+    const positionsOpaque = [];
+    const indicesOpaque = [];
+    const normalsOpaque = [];
+    const colorsOpaque = [];
+    const uvsOpaque = [];
+    let vertexOpaque = 0;
+
+    const positionsTransparent = [];
+    const indicesTransparent = [];
+    const normalsTransparent = [];
+    const colorsTransparent = [];
+    const uvsTransparent = [];
+    let vertexTransparent = 0;
+
+    for (let cellZ = 0; cellZ < cellsZ; cellZ++) {
+      for (let cellX = 0; cellX < cellsX; cellX++) {
+        const sample = this.sampleSurface(chunk, cellX * step, cellZ * step, step);
+        if (!sample) continue;
+        const { block, topY, x0, x1, z0, z1 } = sample;
+        const arrays = BlockData[block]?.transparent ? {
+          positions: positionsTransparent,
+          normals: normalsTransparent,
+          indices: indicesTransparent,
+          colors: colorsTransparent,
+          uvs: uvsTransparent,
+          vertex: "transparent",
+        } : {
+          positions: positionsOpaque,
+          normals: normalsOpaque,
+          indices: indicesOpaque,
+          colors: colorsOpaque,
+          uvs: uvsOpaque,
+          vertex: "opaque",
+        };
+
+        const shade = 0.92 * (0.35 + 0.65 * (this.getFaceLight(chunk, sample.worldX, sample.worldY, sample.worldZ, [0, 1, 0]) / 15));
+        const color = this.getFaceColor(block, "top");
+        const uv = this.textureAtlas.getUV(getBlockTextureKey(block, "top"));
+        const faceUvs = [
+          [uv.u1, uv.v0],
+          [uv.u0, uv.v0],
+          [uv.u0, uv.v1],
+          [uv.u1, uv.v1],
+        ];
+        const vertices = [
+          [x0, topY, z1],
+          [x1, topY, z1],
+          [x1, topY, z0],
+          [x0, topY, z0],
+        ];
+
+        const nextVertex = this.pushQuad(
+          arrays.positions,
+          arrays.normals,
+          arrays.indices,
+          arrays.colors,
+          arrays.uvs,
+          arrays.vertex === "transparent" ? vertexTransparent : vertexOpaque,
+          vertices,
+          [0, 1, 0],
+          color,
+          shade,
+          faceUvs,
+        );
+        if (arrays.vertex === "transparent") {
+          vertexTransparent = nextVertex;
+        } else {
+          vertexOpaque = nextVertex;
+        }
+      }
+    }
+
+    if (chunk.meshes) {
+      for (const mesh of chunk.meshes) {
+        if (mesh.geometry && mesh.geometry.dispose) mesh.geometry.dispose();
+        if (mesh.material && mesh.material.dispose) mesh.material.dispose();
+        if (mesh.parent && typeof mesh.parent.remove === "function") mesh.parent.remove(mesh);
+      }
+      chunk.meshes = null;
+      chunk.mesh = null;
+    }
+
+    const meshes = [];
+    const createMesh = (positionsArr, normalsArr, uvsArr, colorsArr, indicesArr, material) => {
+      if (positionsArr.length === 0) return null;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positionsArr, 3));
+      geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normalsArr, 3));
+      geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvsArr, 2));
+      geometry.setAttribute("color", new THREE.Float32BufferAttribute(colorsArr, 3));
+      geometry.setIndex(indicesArr);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
+      this.scene.add(mesh);
+      return mesh;
+    };
+
+    const opaqueMaterial = this.material.clone();
+    opaqueMaterial.side = THREE.FrontSide;
+    opaqueMaterial.transparent = false;
+    opaqueMaterial.depthWrite = true;
+    const opaqueMesh = createMesh(positionsOpaque, normalsOpaque, uvsOpaque, colorsOpaque, indicesOpaque, opaqueMaterial);
+    if (opaqueMesh) meshes.push(opaqueMesh);
+
+    if (positionsTransparent.length > 0) {
+      const transMaterial = this.material.clone();
+      transMaterial.side = THREE.DoubleSide;
+      transMaterial.transparent = true;
+      transMaterial.depthWrite = true;
+      transMaterial.blending = THREE.NormalBlending;
+      const transMesh = createMesh(positionsTransparent, normalsTransparent, uvsTransparent, colorsTransparent, indicesTransparent, transMaterial);
+      if (transMesh) {
+        transMesh.renderOrder = 1;
+        meshes.push(transMesh);
+      }
+    }
+
+    if (meshes.length === 0) {
+      chunk.dirty = false;
+      return;
+    }
+
+    chunk.meshes = meshes;
+    chunk.mesh = meshes[0];
+    chunk.dirty = false;
+  }
+
   shouldRenderFace(chunk, x, y, z, face) {
     const worldX = chunk.cx * CHUNK_SIZE + x;
     const worldZ = chunk.cz * CHUNK_SIZE + z;
@@ -326,6 +463,57 @@ export class MeshBuilder {
       vertex += 4;
     }
     return vertex;
+  }
+
+  sampleSurface(chunk, startX, startZ, step) {
+    const endX = Math.min(CHUNK_SIZE, startX + step);
+    const endZ = Math.min(CHUNK_SIZE, startZ + step);
+    let bestBlock = Blocks.AIR;
+    let bestX = startX;
+    let bestY = 0;
+    let bestZ = startZ;
+
+    for (let z = startZ; z < endZ; z++) {
+      for (let x = startX; x < endX; x++) {
+        for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+          const block = chunk.getBlock(x, y, z);
+          if (block === Blocks.AIR) continue;
+          if (y >= bestY) {
+            bestBlock = block;
+            bestX = x;
+            bestY = y;
+            bestZ = z;
+          }
+          break;
+        }
+      }
+    }
+
+    if (bestBlock === Blocks.AIR) return null;
+
+    return {
+      block: bestBlock,
+      worldX: chunk.cx * CHUNK_SIZE + bestX,
+      worldY: bestY,
+      worldZ: chunk.cz * CHUNK_SIZE + bestZ,
+      topY: bestY + 1,
+      x0: startX,
+      x1: endX,
+      z0: startZ,
+      z1: endZ,
+    };
+  }
+
+  pushQuad(positions, normals, indices, colors, uvs, vertex, vertices, normal, color, shade, faceUvs) {
+    for (let index = 0; index < vertices.length; index++) {
+      const point = vertices[index];
+      positions.push(point[0], point[1], point[2]);
+      normals.push(normal[0], normal[1], normal[2]);
+      colors.push(color[0] * shade, color[1] * shade, color[2] * shade);
+      uvs.push(faceUvs[index][0], faceUvs[index][1]);
+    }
+    indices.push(vertex, vertex + 1, vertex + 2, vertex, vertex + 2, vertex + 3);
+    return vertex + 4;
   }
 
   getFaceColor(block, faceName) {

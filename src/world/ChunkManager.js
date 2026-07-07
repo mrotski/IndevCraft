@@ -25,8 +25,9 @@ export class ChunkManager {
     const playerChunk = this.worldToChunk(playerPosition.x, playerPosition.z);
     this.queueNearbyChunks(playerChunk.cx, playerChunk.cz);
     this.generatePending(2);
+    this.updateChunkLods(playerChunk.cx, playerChunk.cz);
     this.unloadFarChunks(playerChunk.cx, playerChunk.cz);
-    this.rebuildDirtyMeshes(4);
+    this.rebuildDirtyMeshes(4, playerChunk.cx, playerChunk.cz);
   }
 
   queueNearbyChunks(centerCx, centerCz) {
@@ -62,14 +63,19 @@ export class ChunkManager {
     }
   }
 
-  rebuildDirtyMeshes(budget) {
-    let rebuilt = 0;
-    for (const chunk of this.chunks.values()) {
-      if (!chunk.dirty) continue;
+  rebuildDirtyMeshes(budget, centerCx = 0, centerCz = 0) {
+    const dirtyChunks = [...this.chunks.values()]
+      .filter((chunk) => chunk.dirty)
+      .sort((a, b) => {
+        const da = Math.max(Math.abs(a.cx - centerCx), Math.abs(a.cz - centerCz));
+        const db = Math.max(Math.abs(b.cx - centerCx), Math.abs(b.cz - centerCz));
+        return da - db;
+      });
+
+    for (let index = 0; index < budget && index < dirtyChunks.length; index++) {
+      const chunk = dirtyChunks[index];
       this.lightEngine.compute(chunk);
-      this.meshBuilder.build(chunk);
-      rebuilt++;
-      if (rebuilt >= budget) return;
+      this.meshBuilder.build(chunk, chunk.lodLevel ?? 0);
     }
   }
 
@@ -158,8 +164,25 @@ export class ChunkManager {
     this.saveManager.setBlockChange(this.key(cx, cz), localIndex, blockId);
     this.markNeighborsDirty(cx, cz);
     this.lightEngine.compute(chunk);
-    this.meshBuilder.build(chunk);
+    this.meshBuilder.build(chunk, chunk.lodLevel ?? 0);
     return true;
+  }
+
+  updateChunkLods(centerCx, centerCz) {
+    for (const chunk of this.chunks.values()) {
+      const desiredLod = this.getChunkLodLevel(chunk.cx, chunk.cz, centerCx, centerCz);
+      if (desiredLod !== chunk.lodLevel) {
+        chunk.lodLevel = desiredLod;
+        chunk.dirty = true;
+      }
+    }
+  }
+
+  getChunkLodLevel(cx, cz, centerCx, centerCz) {
+    const distance = Math.max(Math.abs(cx - centerCx), Math.abs(cz - centerCz));
+    if (distance <= Math.max(3, Math.floor(this.renderDistance * 0.35))) return 0;
+    if (distance <= Math.max(6, Math.floor(this.renderDistance * 0.7))) return 1;
+    return 2;
   }
 
   getSunLight(worldX, worldY, worldZ) {
@@ -196,7 +219,8 @@ export class ChunkManager {
     const { cx, cz } = this.worldToChunk(worldX, worldZ);
     this.queueNearbyChunks(cx, cz);
     this.generatePending(budget);
-    this.rebuildDirtyMeshes(budget);
+    this.updateChunkLods(cx, cz);
+    this.rebuildDirtyMeshes(budget, cx, cz);
   }
 
   raycast(origin, direction, maxDistance = 6) {

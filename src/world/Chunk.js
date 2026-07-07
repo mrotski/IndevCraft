@@ -10,6 +10,7 @@ export class Chunk {
     this.blockLight = new Uint8Array(this.blocks.length);
     this.dirty = true;
     this.mesh = null;
+    this.lodLevel = 0;
     this.hasGenerated = false;
   }
 
