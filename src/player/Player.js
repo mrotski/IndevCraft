@@ -23,20 +23,19 @@ export class Player {
   }
 
   update(deltaSeconds) {
-    this.updateRotation();
     this.unstuckCooldown = Math.max(0, this.unstuckCooldown - deltaSeconds);
     if (!this.canOccupy(this.position) && this.unstuckCooldown === 0) {
       this.unstuck();
     }
     this.updateMovement(deltaSeconds);
     this.updateCamera();
+    this.updateRotation();
   }
 
   updateRotation() {
-    // Invert pitch for camera so mouse Y feels natural
-    this.camera.rotation.x = -this.controls.pitch;
-    this.camera.rotation.y = this.controls.yaw;
-    this.camera.rotation.z = 0;
+    const direction = this.getViewDirection();
+    // Keep the camera aligned with the same forward vector used for movement and raycasts.
+    this.camera.lookAt(this.camera.position.clone().add(direction));
   }
 
   updateMovement(deltaSeconds) {
@@ -52,8 +51,9 @@ export class Player {
       const right = move.right / length;
       const sin = Math.sin(this.controls.yaw);
       const cos = Math.cos(this.controls.yaw);
+      // Three.js cameras face -Z by default, so keep world movement on the same basis.
       desiredX = (sin * forward + cos * right) * speed;
-      desiredZ = (cos * forward - sin * right) * speed;
+      desiredZ = (-cos * forward + sin * right) * speed;
     }
 
     this.velocity.x = desiredX;
@@ -175,8 +175,8 @@ export class Player {
     const horizontal = Math.cos(pitch);
     return new THREE.Vector3(
       Math.sin(this.controls.yaw) * horizontal,
-      Math.sin(pitch),
-      Math.cos(this.controls.yaw) * horizontal,
+      -Math.sin(pitch),
+      -Math.cos(this.controls.yaw) * horizontal,
     ).normalize();
   }
 }
