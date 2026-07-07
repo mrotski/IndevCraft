@@ -1,9 +1,11 @@
 import { Blocks, isSolid } from "./blocks/BlockTypes.js";
-import { TARGET_FPS, WORLD_HEIGHT } from "./constants.js";
+import { RENDER_DISTANCE_PRESETS, WORLD_HEIGHT } from "./constants.js";
 import { SaveManager } from "./storage/SaveManager.js";
+import { SettingsManager } from "./storage/SettingsManager.js";
 import { BlockParticles } from "./rendering/BlockParticles.js";
 import { loadTextureAtlas } from "./rendering/TextureAtlas.js";
 import { ChunkManager } from "./world/ChunkManager.js";
+import { Atmosphere } from "./world/Atmosphere.js";
 import { Controls } from "./player/Controls.js";
 import { Player } from "./player/Player.js";
 import { Chat } from "./ui/Chat.js";
@@ -26,13 +28,12 @@ export async function startGame() {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x6faddb);
-  scene.fog = new THREE.Fog(0x6faddb, 34, 70);
 
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 64, 0);
 
-  const sun = new THREE.HemisphereLight(0xffffff, 0x443322, 0.9);
-  scene.add(sun);
+  const skyLight = new THREE.HemisphereLight(0xffffff, 0x443322, 0.9);
+  scene.add(skyLight);
 
   const saveManager = new SaveManager();
   if (!saveManager.data) {
@@ -40,8 +41,11 @@ export async function startGame() {
     saveManager.create(seed);
   }
 
+  const settingsManager = new SettingsManager();
+
   const textureAtlas = await loadTextureAtlas();
   const chunkManager = new ChunkManager(scene, saveManager, saveManager.seed, textureAtlas);
+  chunkManager.renderDistance = settingsManager.getRenderDistanceRadius();
   const savedPlayer = saveManager.getPlayer();
   const savedChunk = savedPlayer?.position
     ? chunkManager.worldToChunk(savedPlayer.position[0], savedPlayer.position[2])
@@ -50,33 +54,10 @@ export async function startGame() {
   chunkManager.generatePending(25);
   chunkManager.rebuildDirtyMeshes(25);
 
-  const pauseMenu = new PauseMenu({
-    saveManager,
-    onBack() {
-      if (!document.pointerLockElement) {
-        canvas.requestPointerLock();
-      }
-    },
-    onSave(name) {
-      saveWorld();
-      return saveManager.saveNamed(name);
-    },
-    onLoad(name) {
-      saveWorld();
-      if (!saveManager.loadNamed(name)) return;
-      window.location.reload();
-    },
-  });
-
   const controls = new Controls(canvas);
-  let lastPointerLocked = document.pointerLockElement === canvas;
-  document.addEventListener("pointerlockchange", () => {
-    const nowLocked = document.pointerLockElement === canvas;
-    if (lastPointerLocked && !nowLocked && !pauseMenu.isOpen() && !chat.isOpen()) {
-      pauseMenu.show();
-    }
-    lastPointerLocked = nowLocked;
-  });
+  const worldTimeState = {
+    value: saveManager.getWorldTime(),
+  };
   const hasValidSavedPosition =
     savedPlayer &&
     savedPlayer.position.length === 3 &&
@@ -93,12 +74,52 @@ export async function startGame() {
   }
 
   const player = new Player(camera, canvas, chunkManager, controls, startPosition);
+  const atmosphere = new Atmosphere(scene, skyLight);
+  atmosphere.setFogEnabled(settingsManager.getFogEnabled());
+  atmosphere.update(player.position, worldTimeState.value, 0);
+
   const hud = new HUD(saveManager.seed, textureAtlas);
-  const blockParticles = new BlockParticles(scene, textureAtlas);
+  const blockParticles = new BlockParticles(scene, textureAtlas, camera);
   const chat = new Chat({
     onCommand(command) {
       return runCommand(command, player, chunkManager, saveWorld);
     },
+  });
+
+  const pauseMenu = new PauseMenu({
+    saveManager,
+    settingsManager,
+    onBack() {
+      if (!document.pointerLockElement) {
+        canvas.requestPointerLock();
+      }
+    },
+    onSave(name) {
+      saveWorld();
+      return saveManager.saveNamed(name);
+    },
+    onLoad(name) {
+      saveWorld();
+      if (!saveManager.loadNamed(name)) return;
+      window.location.reload();
+    },
+    onRenderDistanceChange(preset) {
+      const radius = RENDER_DISTANCE_PRESETS[preset] ?? settingsManager.getRenderDistanceRadius();
+      chunkManager.renderDistance = radius;
+      chunkManager.prepareAreaAround(player.position.x, player.position.z, 96);
+    },
+    onFogChange(enabled) {
+      atmosphere.setFogEnabled(enabled);
+    },
+  });
+
+  let lastPointerLocked = document.pointerLockElement === canvas;
+  document.addEventListener("pointerlockchange", () => {
+    const nowLocked = document.pointerLockElement === canvas;
+    if (lastPointerLocked && !nowLocked && !pauseMenu.isOpen() && !chat.isOpen()) {
+      pauseMenu.show();
+    }
+    lastPointerLocked = nowLocked;
   });
 
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -173,21 +194,21 @@ export async function startGame() {
   window.addEventListener("resize", onResize);
   window.addEventListener("beforeunload", () => saveWorld());
 
-  let renderedFrames = 0;
   let lastFrameTime = 0;
-  const targetFrameMs = 1000 / TARGET_FPS;
+  let renderedFrames = 0;
 
   function animate() {
     requestAnimationFrame(animate);
     const now = performance.now();
-    if (lastFrameTime > 0 && now - lastFrameTime < targetFrameMs) return;
-    const deltaSeconds = lastFrameTime > 0 ? Math.min((now - lastFrameTime) / 1000, 0.05) : targetFrameMs / 1000;
-    const fps = lastFrameTime > 0 ? Math.round(1000 / (now - lastFrameTime)) : TARGET_FPS;
+    const deltaSeconds = lastFrameTime > 0 ? Math.min((now - lastFrameTime) / 1000, 0.05) : 1 / 60;
+    const fps = lastFrameTime > 0 ? Math.round(1000 / (now - lastFrameTime)) : 60;
     lastFrameTime = now;
 
     player.update(deltaSeconds);
     blockParticles.update(deltaSeconds);
     chunkManager.update(player.position);
+    worldTimeState.value += deltaSeconds * 1000;
+    atmosphere.update(player.position, worldTimeState.value, deltaSeconds);
     hud.update(fps, player, chunkManager);
     renderer.render(scene, player.camera);
 
@@ -201,6 +222,7 @@ export async function startGame() {
 
   function saveWorld() {
     saveManager.setPlayer(player.position, new THREE.Vector2(controls.pitch, controls.yaw));
+    saveManager.setWorldTime(worldTimeState.value);
     saveManager.flush();
   }
 }

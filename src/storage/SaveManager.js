@@ -23,6 +23,7 @@ export class SaveManager {
       name: this.activeName,
       seed,
       player: null,
+      worldTimeMs: 0,
       chunks: {},
       savedAt: Date.now(),
     };
@@ -37,12 +38,21 @@ export class SaveManager {
     return this.data?.player ?? null;
   }
 
+  getWorldTime() {
+    return this.data?.worldTimeMs ?? 0;
+  }
+
   setPlayer(position, rotation) {
     if (!this.data) return;
     this.data.player = {
       position: [position.x, position.y, position.z],
       rotation: [rotation.x, rotation.y],
     };
+  }
+
+  setWorldTime(worldTimeMs) {
+    if (!this.data) return;
+    this.data.worldTimeMs = Number.isFinite(worldTimeMs) ? worldTimeMs : 0;
   }
 
   getChunkChanges(key) {
@@ -119,6 +129,7 @@ export class SaveManager {
   prepareData(data, name) {
     data.name = this.normalizeName(data.name ?? name);
     data.chunks ??= {};
+    data.worldTimeMs ??= 0;
     this.removeRetiredBlocks(data);
   }
 

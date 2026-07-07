@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, TARGET_FPS } from "../constants.js";
+import { CHUNK_SIZE } from "../constants.js";
 import { BlockData, getBlockTextureKey, HOTBAR_BLOCKS } from "../blocks/BlockTypes.js";
 
 export class HUD {
@@ -74,7 +74,7 @@ export class HUD {
     const chunkZ = Math.floor(position.z / CHUNK_SIZE);
     const blockName = BlockData[this.getSelectedBlock()].name;
     this.debug.innerHTML = [
-      `FPS: ${Math.min(TARGET_FPS, Math.round(fps))}`,
+      `FPS: ${Math.round(fps)}`,
       `XYZ: ${position.x.toFixed(1)} / ${position.y.toFixed(1)} / ${position.z.toFixed(1)}`,
       `Chunk: ${chunkX}, ${chunkZ}`,
       `Loaded chunks: ${chunkManager.chunks.size}`,

@@ -200,6 +200,34 @@ body {
   gap: 10px;
 }
 
+.setting-group {
+  display: grid;
+  gap: 8px;
+}
+
+.setting-label {
+  text-align: center;
+  font-size: 22px;
+  opacity: 0.95;
+}
+
+.setting-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.setting-options button {
+  font-size: 20px;
+  padding: 8px 6px;
+}
+
+.pause-panel button.selected {
+  border-color: #f7f0a8;
+  box-shadow: 0 0 0 2px rgba(247, 240, 168, 0.35) inset;
+  background: rgba(116, 116, 64, 0.98);
+}
+
 .pause-panel h1 {
   margin: 0 0 6px;
   font-size: 34px;

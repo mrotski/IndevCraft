@@ -34,8 +34,25 @@
       <div class="pause-panel active" id="pauseMain">
         <h1>Game menu</h1>
         <button id="backToGame">Back to game</button>
+        <button id="openSettings">Settings</button>
         <button id="openLoadWorld">Load from save</button>
         <button id="openSaveWorld">Save world</button>
+      </div>
+
+      <div class="pause-panel" id="pauseSettings">
+        <h1>Settings</h1>
+        <div class="setting-group">
+          <div class="setting-label">Render distance</div>
+          <div class="setting-options" id="renderDistanceOptions">
+            <button data-render-distance="tiny">Tiny</button>
+            <button data-render-distance="short">Short</button>
+            <button data-render-distance="medium">Medium</button>
+            <button data-render-distance="far">Far</button>
+            <button data-render-distance="extreme">Extreme</button>
+          </div>
+        </div>
+        <button id="fogToggle">Fog</button>
+        <button id="backFromSettings">Back</button>
       </div>
 
       <div class="pause-panel" id="pauseSave">
