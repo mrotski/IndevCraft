@@ -70,7 +70,7 @@ export function isSolid(blockId) {
 }
 
 export function occludesFaces(blockId) {
-  return blockId !== undefined && blockId !== Blocks.AIR;
+  return blockId !== undefined && blockId !== Blocks.AIR && isTransparent(blockId) !== true;
 }
 
 export function getBlockLight(blockId) {
