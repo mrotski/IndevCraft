@@ -66,6 +66,8 @@ async function loadTextureAtlasThree() {
     grass_sides: { src: "../grass_sides.png", fallback: "#61ad3a" },
     grass_top: { src: "../grass_top.png", fallback: "#61ad3a" },
     water: { src: "../water_top.png", fallback: "#000dff" },
+    coal_ore: { src: null, fallback: "#383838" },
+    iron_ore: { src: null, fallback: "#b89c75" },
     glass: { src: "../glass_all_sides.png", fallback: "#ffffff00" },
   };
 
@@ -98,6 +100,21 @@ async function loadTextureAtlasThree() {
       } catch (e) {
         console.warn(`Atlas: using fallback for ${key}`, e);
       }
+    }
+    if (key === "coal_ore") {
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+      ctx.fillStyle = "#5d5d5d";
+      ctx.fillRect(x + 2, y + 3, 2, 2);
+      ctx.fillRect(x + 8, y + 6, 2, 2);
+      ctx.fillRect(x + 12, y + 10, 2, 2);
+    } else if (key === "iron_ore") {
+      ctx.fillStyle = "#73583a";
+      ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+      ctx.fillStyle = "#d4b48a";
+      ctx.fillRect(x + 2, y + 3, 2, 2);
+      ctx.fillRect(x + 8, y + 6, 2, 2);
+      ctx.fillRect(x + 12, y + 10, 2, 2);
     }
     const inset = 0.001;
     tiles.set(key, { u0: x / width + inset, v0: y / height + inset, u1: (x + TILE_SIZE) / width - inset, v1: (y + TILE_SIZE) / height - inset });

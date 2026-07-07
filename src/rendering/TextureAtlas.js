@@ -3,12 +3,13 @@ const TILE_SIZE = 16;
 const TEXTURE_SOURCES = {
   grass_sides: { src: "../grass_sides.png", fallback: "#61ad3a" },
   grass_top: { src: "../grass_top.png", fallback: "#61ad3a" },
-  grass_bottom: { src: "../dirt_all_sides.png", fallback: "#61ad3a" },
   dirt: { src: "../dirt_all_sides.png", fallback: "#6e4726" },
   stone: { src: "../stone_all_sides.png", fallback: "#7a7a7a" },
   sand: { src: "../sand_all_sides.png", fallback: "#c7b873" },
   cobblestone: { src: "../cobblestone_all_sides.png", fallback: "#6b6b6b" },
   water: { src: "../water_top.png", fallback: "#000dff" },
+  coal_ore: { src: null, fallback: "#383838" },
+  iron_ore: { src: null, fallback: "#b89c75" },
   wood_side: { src: "../wood_log_side.webp", fallback: "#70421a" },
   wood_top: { src: "../wood_log_top.png", fallback: "#94632b" },
   leaves: { src: "../leaves_all_sides.png", fallback: "#398c2e" },
@@ -51,6 +52,11 @@ export async function loadTextureAtlas() {
         console.warn(`Using fallback texture for ${key}`, error);
       }
     }
+    if (key === "coal_ore") {
+      paintOrePattern(context, x, y, TILE_SIZE, "#1a1a1a", "#5d5d5d", 18);
+    } else if (key === "iron_ore") {
+      paintOrePattern(context, x, y, TILE_SIZE, "#73583a", "#d4b48a", 18);
+    }
 
     const inset = 0.001;
     tiles.set(key, {
@@ -88,6 +94,23 @@ function createPreviewUrl(sourceContext, x, y) {
   previewContext.imageSmoothingEnabled = false;
   previewContext.drawImage(sourceContext.canvas, x, y, TILE_SIZE, TILE_SIZE, 0, 0, TILE_SIZE, TILE_SIZE);
   return preview.toDataURL("image/png");
+}
+
+function paintOrePattern(context, x, y, size, background, fleckColor, fleckCount) {
+  context.fillStyle = background;
+  context.fillRect(x, y, size, size);
+
+  const positions = [
+    [1, 2], [2, 1], [4, 3], [6, 2], [8, 4], [11, 2], [13, 5], [3, 8],
+    [6, 9], [9, 8], [12, 10], [2, 12], [5, 13], [10, 12], [14, 13], [7, 14],
+    [1, 6], [14, 2],
+  ];
+
+  context.fillStyle = fleckColor;
+  for (let i = 0; i < Math.min(fleckCount, positions.length); i++) {
+    const [dx, dy] = positions[i];
+    context.fillRect(x + dx, y + dy, 2, 2);
+  }
 }
 
 function loadImage(src) {
