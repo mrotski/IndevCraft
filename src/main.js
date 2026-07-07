@@ -10,6 +10,7 @@ import { Controls } from "./player/Controls.js";
 import { Player } from "./player/Player.js";
 import { Chat } from "./ui/Chat.js";
 import { HUD } from "./ui/HUD.js";
+import { CreativeInventory } from "./ui/CreativeInventory.js";
 import { PauseMenu } from "./ui/PauseMenu.js";
 
 export async function startGame() {
@@ -42,6 +43,7 @@ export async function startGame() {
   }
 
   const settingsManager = new SettingsManager();
+  const hotbarItems = saveManager.getHotbar();
 
   const textureAtlas = await loadTextureAtlas();
   const chunkManager = new ChunkManager(scene, saveManager, saveManager.seed, textureAtlas);
@@ -78,15 +80,58 @@ export async function startGame() {
   atmosphere.setFogEnabled(settingsManager.getFogEnabled());
   atmosphere.update(player.position, worldTimeState.value, 0);
 
-  const hud = new HUD(saveManager.seed, textureAtlas);
+  let pauseMenu = null;
+  let creativeInventory = null;
+  let chat = null;
+  const hud = new HUD(saveManager.seed, textureAtlas, hotbarItems, () => pauseMenu?.isOpen() || chat?.isOpen() || creativeInventory?.isOpen());
   const blockParticles = new BlockParticles(scene, textureAtlas, camera);
-  const chat = new Chat({
+  const syncHotbar = () => {
+    saveManager.setHotbar(hotbarItems);
+    hud.setHotbarItems(hotbarItems);
+    creativeInventory?.setHotbarItems(hotbarItems);
+  };
+  const syncInputState = () => {
+    controls.inputEnabled = controls.pointerLocked && !(pauseMenu?.isOpen() || chat?.isOpen() || creativeInventory?.isOpen());
+  };
+  const openInventory = () => {
+    if (pauseMenu?.isOpen() || chat?.isOpen()) return;
+    creativeInventory?.show();
+    syncInputState();
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+  };
+  const closeInventory = () => {
+    creativeInventory?.hide();
+    syncInputState();
+    if (!pauseMenu?.isOpen() && !chat?.isOpen() && !document.pointerLockElement) {
+      canvas.requestPointerLock();
+    }
+  };
+  chat = new Chat({
     onCommand(command) {
       return runCommand(command, player, chunkManager, saveWorld, setWorldTime);
     },
+    onShow: syncInputState,
+    onHide: syncInputState,
   });
+  creativeInventory = new CreativeInventory({
+    textureAtlas,
+    onSelectSlot(index) {
+      hud.setSelectedIndex(index);
+    },
+    onAssignBlock(blockId) {
+      const index = hud.getSelectedIndex();
+      hotbarItems[index] = blockId;
+      syncHotbar();
+      saveWorld();
+    },
+  });
+  hud.setSelectionChangeHandler((index) => creativeInventory.setSelectedIndex(index));
+  syncHotbar();
+  creativeInventory.setSelectedIndex(hud.getSelectedIndex());
 
-  const pauseMenu = new PauseMenu({
+  pauseMenu = new PauseMenu({
     saveManager,
     settingsManager,
     onBack() {
@@ -116,15 +161,16 @@ export async function startGame() {
   let lastPointerLocked = document.pointerLockElement === canvas;
   document.addEventListener("pointerlockchange", () => {
     const nowLocked = document.pointerLockElement === canvas;
-    if (lastPointerLocked && !nowLocked && !pauseMenu.isOpen() && !chat.isOpen()) {
+    if (lastPointerLocked && !nowLocked && !pauseMenu.isOpen() && !chat?.isOpen() && !creativeInventory.isOpen()) {
       pauseMenu.show();
     }
     lastPointerLocked = nowLocked;
+    syncInputState();
   });
 
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
   canvas.addEventListener("pointerdown", (event) => {
-    if (chat.isOpen()) return;
+    if (chat?.isOpen() || pauseMenu.isOpen() || creativeInventory.isOpen()) return;
     event.preventDefault();
     if (!controls.pointerLocked) {
       canvas.requestPointerLock();
@@ -138,30 +184,50 @@ export async function startGame() {
       chunkManager.setBlock(hit.x, hit.y, hit.z, Blocks.AIR);
     } else if (event.button === 2 && hit.place) {
       const { x, y, z } = hit.place;
+      const selectedBlock = hud.getSelectedBlock();
+      if (selectedBlock == null) return;
       if (!player.intersectsBlock(x, y, z)) {
-        chunkManager.setBlock(x, y, z, hud.getSelectedBlock());
+        chunkManager.setBlock(x, y, z, selectedBlock);
       }
     }
   });
 
   window.addEventListener("keydown", (event) => {
     if (event.code === "Escape") {
-      if (chat.isOpen()) {
+      if (chat?.isOpen()) {
         event.preventDefault();
         chat.hide();
+        syncInputState();
+        return;
+      }
+      if (creativeInventory.isOpen()) {
+        event.preventDefault();
+        closeInventory();
         return;
       }
       if (pauseMenu.isOpen()) {
         event.preventDefault();
         pauseMenu.hide();
+        syncInputState();
         return;
       }
       event.preventDefault();
       pauseMenu.show();
+      syncInputState();
       return;
     }
 
-    if (pauseMenu.isOpen() || chat.isOpen()) return;
+    if (event.code === "KeyE" && !pauseMenu.isOpen() && !chat?.isOpen()) {
+      event.preventDefault();
+      if (creativeInventory.isOpen()) {
+        closeInventory();
+      } else {
+        openInventory();
+      }
+      return;
+    }
+
+    if (pauseMenu.isOpen() || chat.isOpen() || creativeInventory.isOpen()) return;
 
     if (event.code === "F1") {
       event.preventDefault();
@@ -221,6 +287,7 @@ export async function startGame() {
   animate();
 
   function saveWorld() {
+    saveManager.setHotbar(hotbarItems);
     saveManager.setPlayer(player.position, new THREE.Vector2(controls.pitch, controls.yaw));
     saveManager.setWorldTime(worldTimeState.value);
     saveManager.flush();

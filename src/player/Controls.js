@@ -5,6 +5,7 @@ export class Controls {
     this.yaw = 0;
     this.pitch = 0;
     this.pointerLocked = false;
+    this.inputEnabled = true;
 
     document.addEventListener("pointerlockchange", () => {
       this.pointerLocked = document.pointerLockElement === canvas;
@@ -32,7 +33,7 @@ export class Controls {
   }
 
   isDown(code) {
-    return this.keys.has(code);
+    return this.inputEnabled && this.keys.has(code);
   }
 
   getMoveVector() {

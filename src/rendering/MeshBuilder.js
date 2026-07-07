@@ -224,7 +224,7 @@ export class MeshBuilder {
       const transMaterial = this.material.clone();
       transMaterial.side = THREE.DoubleSide;
       transMaterial.transparent = true;
-      transMaterial.depthWrite = false;
+      transMaterial.depthWrite = true;
       transMaterial.blending = THREE.NormalBlending;
 
       const transMesh = addMeshFromArrays(

@@ -1,6 +1,8 @@
 export class Chat {
-  constructor({ onCommand }) {
+  constructor({ onCommand, onShow, onHide }) {
     this.onCommand = onCommand;
+    this.onShow = onShow;
+    this.onHide = onHide;
     this.root = document.getElementById("chat");
     this.log = document.getElementById("chatLog");
     this.input = document.getElementById("chatInput");
@@ -45,6 +47,7 @@ export class Chat {
     this.root.classList.add("open");
     this.input.value = text;
     this.input.focus();
+    this.onShow?.();
   }
 
   hide() {
@@ -52,6 +55,7 @@ export class Chat {
     this.input.value = "";
     this.input.blur();
     this.root.classList.remove("open");
+    this.onHide?.();
   }
 
   submit() {

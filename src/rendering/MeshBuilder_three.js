@@ -73,7 +73,14 @@ export class MeshBuilderThree {
     geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     geometry.setIndex(indices);
 
-    const material = new THREE.MeshBasicMaterial({ map: this.textureAtlas.texture, vertexColors: true });
+    const material = new THREE.MeshBasicMaterial({
+      map: this.textureAtlas.texture,
+      vertexColors: true,
+      transparent: true,
+      depthWrite: true,
+      side: THREE.DoubleSide,
+      alphaTest: 0.05,
+    });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
     this.scene.add(mesh);

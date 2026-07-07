@@ -61,6 +61,14 @@ export const HOTBAR_BLOCKS = [
   Blocks.LEAVES,
 ];
 
+export function getCreativeInventoryBlocks() {
+  return Object.entries(BlockData)
+    .map(([key, data]) => ({ blockId: Number(key), data }))
+    .filter(({ blockId, data }) => blockId !== Blocks.AIR && data?.selectable !== false)
+    .sort((a, b) => a.blockId - b.blockId)
+    .map(({ blockId }) => blockId);
+}
+
 export function isTransparent(blockId) {
   return BlockData[blockId]?.transparent === true;
 }
