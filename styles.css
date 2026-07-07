@@ -211,15 +211,13 @@ body {
   opacity: 0.95;
 }
 
-.setting-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.setting-options button {
-  font-size: 20px;
-  padding: 8px 6px;
+.setting-group input[type="range"] {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: #f7f0a8;
+  height: 28px;
 }
 
 .pause-panel button.selected {

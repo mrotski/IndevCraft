@@ -42,14 +42,8 @@
       <div class="pause-panel" id="pauseSettings">
         <h1>Settings</h1>
         <div class="setting-group">
-          <div class="setting-label">Render distance</div>
-          <div class="setting-options" id="renderDistanceOptions">
-            <button data-render-distance="tiny">Tiny</button>
-            <button data-render-distance="short">Short</button>
-            <button data-render-distance="medium">Medium</button>
-            <button data-render-distance="far">Far</button>
-            <button data-render-distance="extreme">Extreme</button>
-          </div>
+          <div class="setting-label">Render distance: <span id="renderDistanceValue">6</span> chunks</div>
+          <input id="renderDistanceSlider" type="range" min="1" max="24" step="1" value="6" />
         </div>
         <button id="fogToggle">Fog</button>
         <button id="backFromSettings">Back</button>

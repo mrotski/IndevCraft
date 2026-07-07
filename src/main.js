@@ -1,5 +1,5 @@
 import { Blocks, isSolid } from "./blocks/BlockTypes.js";
-import { RENDER_DISTANCE_PRESETS, WORLD_HEIGHT } from "./constants.js";
+import { WORLD_HEIGHT } from "./constants.js";
 import { SaveManager } from "./storage/SaveManager.js";
 import { SettingsManager } from "./storage/SettingsManager.js";
 import { BlockParticles } from "./rendering/BlockParticles.js";
@@ -104,7 +104,7 @@ export async function startGame() {
       window.location.reload();
     },
     onRenderDistanceChange(preset) {
-      const radius = RENDER_DISTANCE_PRESETS[preset] ?? settingsManager.getRenderDistanceRadius();
+      const radius = Number.isFinite(Number(preset)) ? Number(preset) : settingsManager.getRenderDistanceRadius();
       chunkManager.renderDistance = radius;
       chunkManager.prepareAreaAround(player.position.x, player.position.z, 96);
     },

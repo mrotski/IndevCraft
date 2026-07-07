@@ -14,7 +14,8 @@ export class PauseMenu {
     this.loadPanel = document.getElementById("pauseLoad");
     this.saveInput = document.getElementById("worldNameInput");
     this.worldList = document.getElementById("worldList");
-    this.renderDistanceButtons = [...document.querySelectorAll("#renderDistanceOptions button")];
+    this.renderDistanceSlider = document.getElementById("renderDistanceSlider");
+    this.renderDistanceValue = document.getElementById("renderDistanceValue");
     this.fogToggle = document.getElementById("fogToggle");
     this.open = false;
 
@@ -26,9 +27,7 @@ export class PauseMenu {
     document.getElementById("confirmSaveWorld").addEventListener("click", () => this.saveWorld());
     document.getElementById("cancelSaveWorld").addEventListener("click", () => this.showMainPanel());
     document.getElementById("backFromLoad").addEventListener("click", () => this.showMainPanel());
-    for (const button of this.renderDistanceButtons) {
-      button.addEventListener("click", () => this.setRenderDistance(button.dataset.renderDistance));
-    }
+    this.renderDistanceSlider.addEventListener("input", () => this.setRenderDistance(this.renderDistanceSlider.value));
     this.fogToggle.addEventListener("click", () => this.toggleFog());
   }
 
@@ -114,19 +113,18 @@ export class PauseMenu {
   }
 
   renderSettings() {
-    const renderDistance = this.settingsManager?.getRenderDistancePreset?.() ?? "medium";
-    for (const button of this.renderDistanceButtons) {
-      button.classList.toggle("selected", button.dataset.renderDistance === renderDistance);
-    }
+    const renderDistance = this.settingsManager?.getRenderDistance?.() ?? 6;
+    this.renderDistanceSlider.value = String(renderDistance);
+    this.renderDistanceValue.textContent = String(renderDistance);
 
     const fogEnabled = this.settingsManager?.getFogEnabled?.() ?? true;
     this.fogToggle.textContent = `Fog: ${fogEnabled ? "On" : "Off"}`;
     this.fogToggle.classList.toggle("selected", fogEnabled);
   }
 
-  setRenderDistance(preset) {
-    const next = this.settingsManager?.setRenderDistance?.(preset);
-    this.onRenderDistanceChange?.(next ?? preset);
+  setRenderDistance(value) {
+    const next = this.settingsManager?.setRenderDistance?.(value);
+    this.onRenderDistanceChange?.(next ?? Number(value));
     this.renderSettings();
   }
 

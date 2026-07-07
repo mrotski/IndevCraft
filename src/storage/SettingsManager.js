@@ -1,9 +1,13 @@
-import { DEFAULT_RENDER_DISTANCE_PRESET, RENDER_DISTANCE_PRESETS } from "../constants.js";
+import {
+  DEFAULT_RENDER_DISTANCE_CHUNKS,
+  MAX_RENDER_DISTANCE_CHUNKS,
+  MIN_RENDER_DISTANCE_CHUNKS,
+} from "../constants.js";
 
 const SETTINGS_KEY = "indev-unlimited-settings-v1";
 
 const DEFAULT_SETTINGS = {
-  renderDistance: DEFAULT_RENDER_DISTANCE_PRESET,
+  renderDistance: DEFAULT_RENDER_DISTANCE_CHUNKS,
   fogEnabled: true,
 };
 
@@ -26,16 +30,16 @@ export class SettingsManager {
     }
   }
 
-  getRenderDistancePreset() {
+  getRenderDistance() {
     return this.data.renderDistance;
   }
 
   getRenderDistanceRadius() {
-    return RENDER_DISTANCE_PRESETS[this.getRenderDistancePreset()] ?? RENDER_DISTANCE_PRESETS[DEFAULT_RENDER_DISTANCE_PRESET];
+    return this.getRenderDistance();
   }
 
-  setRenderDistance(preset) {
-    const normalized = this.normalizeRenderDistance(preset);
+  setRenderDistance(value) {
+    const normalized = this.normalizeRenderDistance(value);
     this.data.renderDistance = normalized;
     this.flush();
     return normalized;
@@ -59,9 +63,22 @@ export class SettingsManager {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.data));
   }
 
-  normalizeRenderDistance(preset) {
-    return Object.prototype.hasOwnProperty.call(RENDER_DISTANCE_PRESETS, preset)
-      ? preset
-      : DEFAULT_RENDER_DISTANCE_PRESET;
+  normalizeRenderDistance(value) {
+    if (typeof value === "string") {
+      const legacyValues = {
+        tiny: 1,
+        short: 2,
+        medium: 3,
+        far: 4,
+        extreme: 6,
+      };
+      if (Object.prototype.hasOwnProperty.call(legacyValues, value)) {
+        return legacyValues[value];
+      }
+    }
+
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return DEFAULT_RENDER_DISTANCE_CHUNKS;
+    return Math.max(MIN_RENDER_DISTANCE_CHUNKS, Math.min(MAX_RENDER_DISTANCE_CHUNKS, Math.round(numeric)));
   }
 }

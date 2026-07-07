@@ -7,14 +7,9 @@ export const MAX_LIGHT = 15;
 export const TARGET_FPS = 999;
 export const SAVE_KEY = "indev-unlimited-save-v1";
 export const SAVE_INDEX_KEY = "indev-unlimited-world-index-v1";
-export const DEFAULT_RENDER_DISTANCE_PRESET = "medium";
-export const RENDER_DISTANCE_PRESETS = {
-  tiny: 1,
-  short: 2,
-  medium: 3,
-  far: 4,
-  extreme: 6,
-};
+export const DEFAULT_RENDER_DISTANCE_CHUNKS = 6;
+export const MIN_RENDER_DISTANCE_CHUNKS = 1;
+export const MAX_RENDER_DISTANCE_CHUNKS = 24;
 
 export const FACE_DIRECTIONS = [
   { name: "north", normal: [0, 0, -1], offset: [0, 0, -1] },
