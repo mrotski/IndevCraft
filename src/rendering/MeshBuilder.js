@@ -269,10 +269,10 @@ export class MeshBuilder {
     const light = this.getFaceLight(chunk, x, y, z, face.offset);
     const shade = FACE_SHADE[face.name] * (0.24 + 0.76 * (light / 15));
     const faceUvs = [
-      [uv.u1, uv.v1],
-      [uv.u0, uv.v1],
-      [uv.u0, uv.v0],
       [uv.u1, uv.v0],
+      [uv.u0, uv.v0],
+      [uv.u0, uv.v1],
+      [uv.u1, uv.v1],
     ];
 
     for (let index = 0; index < vertices.length; index++) {
@@ -306,10 +306,10 @@ export class MeshBuilder {
     const color = this.getFaceColor(block, "top");
     const uv = this.textureAtlas.getUV(getBlockTextureKey(block, "top"));
     const faceUvs = [
-      [uv.u0, uv.v1],
-      [uv.u1, uv.v1],
-      [uv.u1, uv.v0],
       [uv.u0, uv.v0],
+      [uv.u1, uv.v0],
+      [uv.u1, uv.v1],
+      [uv.u0, uv.v1],
     ];
     const shade = 0.88 * (0.35 + 0.65 * (this.getFaceLight(chunk, x, y, z, [0, 1, 0]) / 15));
 

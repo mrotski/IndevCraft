@@ -32,10 +32,10 @@ export class MeshBuilderThree {
             const color = this.getFaceColor(block, face.name);
             const uv = this.textureAtlas.getUV(getBlockTextureKey(block, face.name));
             const faceUvs = [
-              [uv.u1, uv.v1],
-              [uv.u0, uv.v1],
-              [uv.u0, uv.v0],
               [uv.u1, uv.v0],
+              [uv.u0, uv.v0],
+              [uv.u0, uv.v1],
+              [uv.u1, uv.v1],
             ];
 
             for (let i = 0; i < verts.length; i++) {
