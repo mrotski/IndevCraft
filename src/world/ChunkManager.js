@@ -14,19 +14,28 @@ export class ChunkManager {
     this.seed = seed >>> 0;
     this.chunks = new Map();
     this.pending = [];
+    this.pendingSet = new Set();
     this.terrain = new TerrainGenerator(this.seed);
     this.caves = new CaveGenerator(this.seed, this.terrain);
     this.lightEngine = new LightEngine();
     this.meshBuilder = new MeshBuilder(scene, this, textureAtlas);
     this.renderDistance = LOAD_RADIUS;
+    this.lastPlayerChunkKey = null;
+    this.lastQueuedRenderDistance = this.renderDistance;
   }
 
   update(playerPosition) {
     const playerChunk = this.worldToChunk(playerPosition.x, playerPosition.z);
-    this.queueNearbyChunks(playerChunk.cx, playerChunk.cz);
+    const chunkKey = this.key(playerChunk.cx, playerChunk.cz);
+    const needsStreamingUpdate = chunkKey !== this.lastPlayerChunkKey || this.lastQueuedRenderDistance !== this.renderDistance;
+    if (needsStreamingUpdate) {
+      this.queueNearbyChunks(playerChunk.cx, playerChunk.cz);
+      this.updateChunkLods(playerChunk.cx, playerChunk.cz);
+      this.unloadFarChunks(playerChunk.cx, playerChunk.cz);
+      this.lastPlayerChunkKey = chunkKey;
+      this.lastQueuedRenderDistance = this.renderDistance;
+    }
     this.generatePending(2);
-    this.updateChunkLods(playerChunk.cx, playerChunk.cz);
-    this.unloadFarChunks(playerChunk.cx, playerChunk.cz);
     this.rebuildDirtyMeshes(4, playerChunk.cx, playerChunk.cz);
   }
 
@@ -38,8 +47,9 @@ export class ChunkManager {
           const cx = centerCx + dx;
           const cz = centerCz + dz;
           const key = this.key(cx, cz);
-          if (!this.chunks.has(key) && !this.pending.includes(key)) {
+          if (!this.chunks.has(key) && !this.pendingSet.has(key)) {
             this.pending.push(key);
+            this.pendingSet.add(key);
           }
         }
       }
@@ -49,6 +59,7 @@ export class ChunkManager {
   generatePending(budget) {
     for (let i = 0; i < budget && this.pending.length; i++) {
       const key = this.pending.shift();
+      this.pendingSet.delete(key);
       if (this.chunks.has(key)) continue;
       const [cx, cz] = key.split(",").map(Number);
       const chunk = new Chunk(cx, cz);
@@ -180,9 +191,10 @@ export class ChunkManager {
 
   getChunkLodLevel(cx, cz, centerCx, centerCz) {
     const distance = Math.max(Math.abs(cx - centerCx), Math.abs(cz - centerCz));
-    if (distance <= Math.max(3, Math.floor(this.renderDistance * 0.35))) return 0;
-    if (distance <= Math.max(6, Math.floor(this.renderDistance * 0.7))) return 1;
-    return 2;
+    if (distance <= 3) return 0;
+    if (distance <= 7) return 1;
+    if (distance <= 15) return 2;
+    return 3;
   }
 
   getSunLight(worldX, worldY, worldZ) {

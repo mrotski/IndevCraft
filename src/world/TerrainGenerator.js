@@ -47,6 +47,17 @@ export class TerrainGenerator {
     return Math.max(18, Math.min(WORLD_HEIGHT - 8, Math.floor(height)));
   }
 
+  getSurfaceInfo(worldX, worldZ) {
+    const height = this.getHeight(worldX, worldZ);
+    if (height < SEA_LEVEL) {
+      return { height: SEA_LEVEL + 1, block: Blocks.WATER };
+    }
+    if (height <= SEA_LEVEL + 2) {
+      return { height, block: Blocks.SAND };
+    }
+    return { height, block: Blocks.GRASS };
+  }
+
   getStoneOrOre(worldX, y, worldZ) {
     const coal = this.oreNoise.noise3(worldX * 0.09, y * 0.16, worldZ * 0.09);
     if (coal > 0.43 && y < 92) return Blocks.COAL_ORE;

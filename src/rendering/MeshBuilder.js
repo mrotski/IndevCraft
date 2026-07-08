@@ -260,6 +260,23 @@ export class MeshBuilder {
     const step = 1 << lodLevel;
     const cellsX = Math.ceil(CHUNK_SIZE / step);
     const cellsZ = Math.ceil(CHUNK_SIZE / step);
+    const grid = Array.from({ length: cellsZ }, () => Array(cellsX).fill(null));
+
+    for (let cellZ = 0; cellZ < cellsZ; cellZ++) {
+      for (let cellX = 0; cellX < cellsX; cellX++) {
+        grid[cellZ][cellX] = this.sampleLodCell(chunk, cellX * step, cellZ * step, step);
+      }
+    }
+
+    if (chunk.meshes) {
+      for (const mesh of chunk.meshes) {
+        if (mesh.geometry && mesh.geometry.dispose) mesh.geometry.dispose();
+        if (mesh.material && mesh.material.dispose) mesh.material.dispose();
+        if (mesh.parent && typeof mesh.parent.remove === "function") mesh.parent.remove(mesh);
+      }
+      chunk.meshes = null;
+      chunk.mesh = null;
+    }
 
     const positionsOpaque = [];
     const indicesOpaque = [];
@@ -275,72 +292,114 @@ export class MeshBuilder {
     const uvsTransparent = [];
     let vertexTransparent = 0;
 
+    const emitQuad = (target, vertices, normal, block, faceName, shade, lightPoint) => {
+      const color = this.getFaceColor(block, faceName);
+      const uv = this.textureAtlas.getUV(getBlockTextureKey(block, faceName));
+      const faceUvs = [
+        [uv.u1, uv.v0],
+        [uv.u0, uv.v0],
+        [uv.u0, uv.v1],
+        [uv.u1, uv.v1],
+      ];
+      const light = this.getLodLight(chunk, lightPoint);
+      const litShade = shade * (0.24 + 0.76 * (light / 15));
+      const nextVertex = this.appendQuad(
+        target.positions,
+        target.normals,
+        target.indices,
+        target.colors,
+        target.uvs,
+        target.vertex,
+        vertices,
+        normal,
+        color,
+        litShade,
+        faceUvs,
+      );
+      target.vertex = nextVertex;
+    };
+
     for (let cellZ = 0; cellZ < cellsZ; cellZ++) {
       for (let cellX = 0; cellX < cellsX; cellX++) {
-        const sample = this.sampleSurface(chunk, cellX * step, cellZ * step, step);
-        if (!sample) continue;
-        const { block, topY, x0, x1, z0, z1 } = sample;
-        const arrays = BlockData[block]?.transparent ? {
-          positions: positionsTransparent,
-          normals: normalsTransparent,
-          indices: indicesTransparent,
-          colors: colorsTransparent,
-          uvs: uvsTransparent,
-          vertex: "transparent",
-        } : {
-          positions: positionsOpaque,
-          normals: normalsOpaque,
-          indices: indicesOpaque,
-          colors: colorsOpaque,
-          uvs: uvsOpaque,
-          vertex: "opaque",
-        };
+        const cell = grid[cellZ][cellX];
+        if (!cell) continue;
 
-        const shade = 0.92 * (0.35 + 0.65 * (this.getFaceLight(chunk, sample.worldX, sample.worldY, sample.worldZ, [0, 1, 0]) / 15));
-        const color = this.getFaceColor(block, "top");
-        const uv = this.textureAtlas.getUV(getBlockTextureKey(block, "top"));
-        const faceUvs = [
-          [uv.u1, uv.v0],
-          [uv.u0, uv.v0],
-          [uv.u0, uv.v1],
-          [uv.u1, uv.v1],
-        ];
-        const vertices = [
-          [x0, topY, z1],
-          [x1, topY, z1],
-          [x1, topY, z0],
-          [x0, topY, z0],
-        ];
+        const target = BlockData[cell.block]?.transparent
+          ? { positions: positionsTransparent, normals: normalsTransparent, indices: indicesTransparent, colors: colorsTransparent, uvs: uvsTransparent, vertex: vertexTransparent }
+          : { positions: positionsOpaque, normals: normalsOpaque, indices: indicesOpaque, colors: colorsOpaque, uvs: uvsOpaque, vertex: vertexOpaque };
 
-        const nextVertex = this.pushQuad(
-          arrays.positions,
-          arrays.normals,
-          arrays.indices,
-          arrays.colors,
-          arrays.uvs,
-          arrays.vertex === "transparent" ? vertexTransparent : vertexOpaque,
-          vertices,
+        const x0 = cell.x0;
+        const x1 = cell.x1;
+        const z0 = cell.z0;
+        const z1 = cell.z1;
+        const yTop = cell.topY;
+
+        emitQuad(
+          target,
+          [
+            [x0, yTop, z1],
+            [x1, yTop, z1],
+            [x1, yTop, z0],
+            [x0, yTop, z0],
+          ],
           [0, 1, 0],
-          color,
-          shade,
-          faceUvs,
+          cell.block,
+          "top",
+          1.0,
+          [cell.worldX, cell.worldY, cell.worldZ],
         );
-        if (arrays.vertex === "transparent") {
-          vertexTransparent = nextVertex;
+
+        const neighborDefs = [
+          {
+            faceName: "north",
+            dx: 0,
+            dz: -1,
+            normal: [0, 0, -1],
+            makeVertices: (lower) => [[x1, lower, z0], [x0, lower, z0], [x0, yTop, z0], [x1, yTop, z0]],
+          },
+          {
+            faceName: "south",
+            dx: 0,
+            dz: 1,
+            normal: [0, 0, 1],
+            makeVertices: (lower) => [[x0, lower, z1], [x1, lower, z1], [x1, yTop, z1], [x0, yTop, z1]],
+          },
+          {
+            faceName: "west",
+            dx: -1,
+            dz: 0,
+            normal: [-1, 0, 0],
+            makeVertices: (lower) => [[x0, lower, z1], [x0, lower, z0], [x0, yTop, z0], [x0, yTop, z1]],
+          },
+          {
+            faceName: "east",
+            dx: 1,
+            dz: 0,
+            normal: [1, 0, 0],
+            makeVertices: (lower) => [[x1, lower, z0], [x1, lower, z1], [x1, yTop, z1], [x1, yTop, z0]],
+          },
+        ];
+
+        for (const neighborDef of neighborDefs) {
+          const neighbor = this.getLodNeighbor(grid, chunk, cellX, cellZ, step, neighborDef.dx, neighborDef.dz);
+          if (!neighbor || neighbor.topY >= yTop) continue;
+          emitQuad(
+            target,
+            neighborDef.makeVertices(neighbor.topY),
+            neighborDef.normal,
+            cell.block,
+            neighborDef.faceName,
+            FACE_SHADE[neighborDef.faceName] ?? 0.7,
+            [cell.worldX, cell.worldY, cell.worldZ],
+          );
+        }
+
+        if (BlockData[cell.block]?.transparent) {
+          vertexTransparent = target.vertex;
         } else {
-          vertexOpaque = nextVertex;
+          vertexOpaque = target.vertex;
         }
       }
-    }
-
-    if (chunk.meshes) {
-      for (const mesh of chunk.meshes) {
-        if (mesh.geometry && mesh.geometry.dispose) mesh.geometry.dispose();
-        if (mesh.material && mesh.material.dispose) mesh.material.dispose();
-        if (mesh.parent && typeof mesh.parent.remove === "function") mesh.parent.remove(mesh);
-      }
-      chunk.meshes = null;
-      chunk.mesh = null;
     }
 
     const meshes = [];
@@ -351,7 +410,11 @@ export class MeshBuilder {
       geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normalsArr, 3));
       geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvsArr, 2));
       geometry.setAttribute("color", new THREE.Float32BufferAttribute(colorsArr, 3));
-      geometry.setIndex(indicesArr);
+      if (positionsArr.length / 3 > 65535 && typeof Uint32Array !== "undefined") {
+        geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indicesArr), 1));
+      } else {
+        geometry.setIndex(indicesArr);
+      }
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
       this.scene.add(mesh);
@@ -465,38 +528,37 @@ export class MeshBuilder {
     return vertex;
   }
 
-  sampleSurface(chunk, startX, startZ, step) {
+  sampleLodCell(chunk, startX, startZ, step) {
     const endX = Math.min(CHUNK_SIZE, startX + step);
     const endZ = Math.min(CHUNK_SIZE, startZ + step);
-    let bestBlock = Blocks.AIR;
-    let bestX = startX;
-    let bestY = 0;
-    let bestZ = startZ;
+    let best = null;
 
     for (let z = startZ; z < endZ; z++) {
       for (let x = startX; x < endX; x++) {
         for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
           const block = chunk.getBlock(x, y, z);
           if (block === Blocks.AIR) continue;
-          if (y >= bestY) {
-            bestBlock = block;
-            bestX = x;
-            bestY = y;
-            bestZ = z;
+          if (!best || y > best.y || (y === best.y && this.getSurfacePriority(block) > this.getSurfacePriority(best.block))) {
+            best = {
+              block,
+              y,
+              worldX: chunk.cx * CHUNK_SIZE + x,
+              worldZ: chunk.cz * CHUNK_SIZE + z,
+            };
           }
           break;
         }
       }
     }
 
-    if (bestBlock === Blocks.AIR) return null;
+    if (!best) return null;
 
     return {
-      block: bestBlock,
-      worldX: chunk.cx * CHUNK_SIZE + bestX,
-      worldY: bestY,
-      worldZ: chunk.cz * CHUNK_SIZE + bestZ,
-      topY: bestY + 1,
+      block: best.block,
+      topY: best.y + 1,
+      worldX: best.worldX,
+      worldY: best.y,
+      worldZ: best.worldZ,
       x0: startX,
       x1: endX,
       z0: startZ,
@@ -504,7 +566,52 @@ export class MeshBuilder {
     };
   }
 
-  pushQuad(positions, normals, indices, colors, uvs, vertex, vertices, normal, color, shade, faceUvs) {
+  getLodNeighbor(grid, chunk, cellX, cellZ, step, dx, dz) {
+    const neighborX = cellX + dx;
+    const neighborZ = cellZ + dz;
+    if (neighborZ >= 0 && neighborZ < grid.length && neighborX >= 0 && neighborX < grid[neighborZ].length) {
+      const cell = grid[neighborZ][neighborX];
+      if (cell) return cell;
+    }
+
+    const worldX = chunk.cx * CHUNK_SIZE + (cellX + dx) * step;
+    const worldZ = chunk.cz * CHUNK_SIZE + (cellZ + dz) * step;
+    return this.sampleWorldSurface(worldX, worldZ);
+  }
+
+  sampleWorldSurface(worldX, worldZ) {
+    const { cx, cz, lx, lz } = this.chunkManager.worldToLocal(worldX, worldZ);
+    const chunk = this.chunkManager.chunks.get(this.chunkManager.key(cx, cz));
+    if (chunk) {
+      return this.sampleChunkSurface(chunk, lx, lz, worldX, worldZ);
+    }
+
+    const surface = this.chunkManager.terrain.getSurfaceInfo(worldX, worldZ);
+    return {
+      block: surface.block,
+      topY: surface.height + 1,
+      worldX: Math.floor(worldX),
+      worldY: surface.height,
+      worldZ: Math.floor(worldZ),
+    };
+  }
+
+  sampleChunkSurface(chunk, localX, localZ, worldX, worldZ) {
+    for (let y = WORLD_HEIGHT - 1; y >= 0; y--) {
+      const block = chunk.getBlock(localX, y, localZ);
+      if (block === Blocks.AIR) continue;
+      return {
+        block,
+        topY: y + 1,
+        worldX: Math.floor(worldX),
+        worldY: y,
+        worldZ: Math.floor(worldZ),
+      };
+    }
+    return null;
+  }
+
+  appendQuad(positions, normals, indices, colors, uvs, vertex, vertices, normal, color, shade, faceUvs) {
     for (let index = 0; index < vertices.length; index++) {
       const point = vertices[index];
       positions.push(point[0], point[1], point[2]);
@@ -514,6 +621,21 @@ export class MeshBuilder {
     }
     indices.push(vertex, vertex + 1, vertex + 2, vertex, vertex + 2, vertex + 3);
     return vertex + 4;
+  }
+
+  getLodLight(chunk, samplePoint) {
+    const worldX = samplePoint[0] + chunk.cx * CHUNK_SIZE;
+    const worldY = Math.max(0, Math.floor(samplePoint[1] - 1));
+    const worldZ = samplePoint[2] + chunk.cz * CHUNK_SIZE;
+    return Math.max(this.chunkManager.getSunLight(worldX, worldY, worldZ), this.chunkManager.getBlockLight(worldX, worldY, worldZ));
+  }
+
+  getSurfacePriority(block) {
+    if (block === Blocks.WATER) return 1;
+    if (block === Blocks.SAND) return 2;
+    if (block === Blocks.DIRT) return 3;
+    if (block === Blocks.GRASS) return 4;
+    return 5;
   }
 
   getFaceColor(block, faceName) {
