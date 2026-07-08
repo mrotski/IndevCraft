@@ -26,6 +26,7 @@ export class ChunkManager {
     this.dirtySet = new Set();
     this.workAccumulator = 0;
     this.generatingSet = new Set();
+    this.chunkReadyResolvers = new Map();
     this.worker = null;
     this.workerFallback = false;
     this.createWorker();
@@ -143,6 +144,17 @@ export class ChunkManager {
     this.chunks.set(key, chunk);
     this.queueChunkForMeshBuild(chunk);
     this.markNeighborsDirty(cx, cz);
+    this.notifyChunkReady(key);
+  }
+
+  notifyChunkReady(key) {
+    const resolvers = this.chunkReadyResolvers.get(key);
+    if (!resolvers) return;
+    this.chunkReadyResolvers.delete(key);
+    for (const { resolve, timeout } of resolvers) {
+      clearTimeout(timeout);
+      resolve(true);
+    }
   }
 
   rebuildDirtyMeshes(budget, centerCx = 0, centerCz = 0) {
@@ -309,6 +321,36 @@ export class ChunkManager {
     }
 
     this.rebuildDirtyMeshes(Math.max(4, Math.floor(budget / 8)), cx, cz);
+    return this.chunks.has(targetKey);
+  }
+
+  waitForChunkLoadedAt(worldX, worldZ, timeoutMs = 10000) {
+    const { cx, cz } = this.worldToChunk(worldX, worldZ);
+    const key = this.key(cx, cz);
+    if (this.chunks.has(key)) return Promise.resolve(true);
+
+    this.queueNearbyChunks(cx, cz);
+    this.generatePending(1);
+
+    return new Promise((resolve, reject) => {
+      const existing = this.chunkReadyResolvers.get(key) || [];
+      const timeout = setTimeout(() => {
+        const resolvers = this.chunkReadyResolvers.get(key) || [];
+        this.chunkReadyResolvers.set(
+          key,
+          resolvers.filter((entry) => entry.timeout !== timeout),
+        );
+        reject(new Error("Chunk generation timed out"));
+      }, timeoutMs);
+
+      existing.push({ resolve, reject, timeout });
+      this.chunkReadyResolvers.set(key, existing);
+    });
+  }
+
+  hasGeneratedChunkAtWorld(worldX, worldZ) {
+    const { cx, cz } = this.worldToChunk(worldX, worldZ);
+    return this.chunks.has(this.key(cx, cz));
   }
 
   raycast(origin, direction, maxDistance = 6) {

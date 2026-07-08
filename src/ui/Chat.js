@@ -68,7 +68,17 @@ export class Chat {
     this.addMessage(`> ${text}`);
     if (text.startsWith("/")) {
       const response = this.onCommand(text);
-      if (response) this.addMessage(response);
+      if (response instanceof Promise) {
+        response
+          .then((result) => {
+            if (result) this.addMessage(result);
+          })
+          .catch((error) => {
+            this.addMessage(`Command failed: ${error?.message ?? error}`);
+          });
+      } else if (response) {
+        this.addMessage(response);
+      }
     } else {
       this.addMessage("Single-player chat is local only.");
     }

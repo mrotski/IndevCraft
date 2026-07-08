@@ -158,6 +158,7 @@ export async function startGame() {
     },
   });
 
+  let pendingTeleport = null;
   let lastPointerLocked = document.pointerLockElement === canvas;
   document.addEventListener("pointerlockchange", () => {
     const nowLocked = document.pointerLockElement === canvas;
@@ -270,6 +271,20 @@ export async function startGame() {
     const fps = lastFrameTime > 0 ? Math.round(1000 / (now - lastFrameTime)) : 60;
     lastFrameTime = now;
 
+    if (pendingTeleport) {
+      const ready = chunkManager.hasGeneratedChunkAtWorld(pendingTeleport.worldX, pendingTeleport.worldZ);
+      if (ready) {
+        if (pendingTeleport.useSurface) {
+          player.position.copy(chunkManager.findSurfacePosition(pendingTeleport.worldX, pendingTeleport.worldZ));
+        } else {
+          player.position.set(pendingTeleport.x, pendingTeleport.y, pendingTeleport.z);
+        }
+        player.velocity.set(0, 0, 0);
+        saveWorld();
+        pendingTeleport = null;
+      }
+    }
+
     player.update(deltaSeconds);
     blockParticles.update(deltaSeconds);
     chunkManager.update(player.position, deltaSeconds);
@@ -299,7 +314,7 @@ export async function startGame() {
   }
 }
 
-function runCommand(command, player, chunkManager, saveWorld, setWorldTime) {
+async function runCommand(command, player, chunkManager, saveWorld, setWorldTime) {
   const parts = command.slice(1).trim().split(/\s+/);
   const name = parts.shift()?.toLowerCase();
 
@@ -309,21 +324,41 @@ function runCommand(command, player, chunkManager, saveWorld, setWorldTime) {
       return "Usage: /tp <x> <y> <z> or /tp <x> <z>";
     }
 
+    const playerChunkLoaded = chunkManager.hasGeneratedChunkAtWorld(player.position.x, player.position.z);
+    const [targetX, targetZ] = values.length === 2 ? values : [values[0], values[2]];
+    const targetChunkLoaded = chunkManager.hasGeneratedChunkAtWorld(targetX, targetZ);
+
+    if (!playerChunkLoaded && !targetChunkLoaded) {
+      await chunkManager.waitForChunkLoadedAt(targetX, targetZ);
+    }
+
     if (values.length === 2) {
       const [x, z] = values;
+      if (chunkManager.hasGeneratedChunkAtWorld(x, z)) {
+        player.position.copy(chunkManager.findSurfacePosition(x, z));
+        player.velocity.set(0, 0, 0);
+        saveWorld();
+        return `Teleported to ${player.position.x.toFixed(1)} ${player.position.y.toFixed(1)} ${player.position.z.toFixed(1)}`;
+      }
+
       chunkManager.prepareAreaAround(x, z, 96);
-      player.position.copy(chunkManager.findSurfacePosition(x, z));
+      pendingTeleport = { worldX: x, worldZ: z, x, y: 0, z, useSurface: true };
+      return "Preparing destination terrain...";
     } else if (values.length === 3) {
       const [x, y, z] = values;
+      if (chunkManager.hasGeneratedChunkAtWorld(x, z)) {
+        player.position.set(x, y, z);
+        player.velocity.set(0, 0, 0);
+        saveWorld();
+        return `Teleported to ${player.position.x.toFixed(1)} ${player.position.y.toFixed(1)} ${player.position.z.toFixed(1)}`;
+      }
+
       chunkManager.prepareAreaAround(x, z, 96);
-      player.position.set(x, y, z);
+      pendingTeleport = { worldX: x, worldZ: z, x, y, z, useSurface: false };
+      return "Preparing destination terrain...";
     } else {
       return "Usage: /tp <x> <y> <z> or /tp <x> <z>";
     }
-
-    player.velocity.set(0, 0, 0);
-    saveWorld();
-    return `Teleported to ${player.position.x.toFixed(1)} ${player.position.y.toFixed(1)} ${player.position.z.toFixed(1)}`;
   }
 
   if (name === "time") {
