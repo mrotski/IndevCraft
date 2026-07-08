@@ -8,8 +8,8 @@ const TEXTURE_SOURCES = {
   sand: { src: "../sand_all_sides.png", fallback: "#c7b873" },
   cobblestone: { src: "../cobblestone_all_sides.png", fallback: "#6b6b6b" },
   water: { src: "../water_top.png", fallback: "#000dff" },
-  coal_ore: { src: null, fallback: "#383838" },
-  iron_ore: { src: null, fallback: "#b89c75" },
+  coal_ore: { src: "../coal_ore_all_sides.png", fallback: "#383838" },
+  iron_ore: { src: "../iron_ore_all_sides.png", fallback: "#b89c75" },
   wood_side: { src: "../wood_log_side.webp", fallback: "#70421a" },
   wood_top: { src: "../wood_log_top.png", fallback: "#94632b" },
   leaves: { src: "../leaves_all_sides.png", fallback: "#398c2e" },
@@ -52,7 +52,11 @@ export async function loadTextureAtlas() {
         console.warn(`Using fallback texture for ${key}`, error);
       }
     }
-    if (key === "coal_ore") {
+    if (key === "coal_ore" && definition.src) {
+      // keep the source image as-is; the fallback pattern only applies if the image fails to load
+    } else if (key === "iron_ore" && definition.src) {
+      // keep the source image as-is; the fallback pattern only applies if the image fails to load
+    } else if (key === "coal_ore") {
       paintOrePattern(context, x, y, TILE_SIZE, "#1a1a1a", "#5d5d5d", 18);
     } else if (key === "iron_ore") {
       paintOrePattern(context, x, y, TILE_SIZE, "#73583a", "#d4b48a", 18);
