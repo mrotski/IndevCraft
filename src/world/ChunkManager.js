@@ -25,6 +25,10 @@ export class ChunkManager {
     this.dirtyQueue = [];
     this.dirtySet = new Set();
     this.workAccumulator = 0;
+    this.generatingSet = new Set();
+    this.worker = null;
+    this.workerFallback = false;
+    this.createWorker();
   }
 
   update(playerPosition, deltaSeconds = 0) {
@@ -49,7 +53,8 @@ export class ChunkManager {
     }
 
     if (this.dirtyQueue.length) {
-      this.rebuildDirtyMeshes(1, playerChunk.cx, playerChunk.cz);
+      const meshBudget = deltaSeconds > 0.016 ? 1 : 2;
+      this.rebuildDirtyMeshes(meshBudget, playerChunk.cx, playerChunk.cz);
     }
   }
 
@@ -61,7 +66,7 @@ export class ChunkManager {
           const cx = centerCx + dx;
           const cz = centerCz + dz;
           const key = this.key(cx, cz);
-          if (!this.chunks.has(key) && !this.pendingSet.has(key)) {
+          if (!this.chunks.has(key) && !this.pendingSet.has(key) && !this.generatingSet.has(key)) {
             this.pending.push(key);
             this.pendingSet.add(key);
           }
@@ -73,40 +78,105 @@ export class ChunkManager {
   generatePending(budget) {
     for (let i = 0; i < budget && this.pending.length; i++) {
       const key = this.pending.shift();
+      if (!key) break;
       this.pendingSet.delete(key);
-      if (this.chunks.has(key)) continue;
+      if (this.chunks.has(key) || this.generatingSet.has(key)) continue;
       const [cx, cz] = key.split(",").map(Number);
+      this.generatingSet.add(key);
+      if (this.worker && !this.workerFallback) {
+        this.worker.postMessage({ type: "generate", payload: { seed: this.seed, cx, cz, key } });
+        continue;
+      }
+
       const chunk = new Chunk(cx, cz);
       this.terrain.generateBase(chunk);
       this.caves.carve(chunk);
       this.addVegetation(chunk);
       this.applySavedChanges(chunk);
       this.lightEngine.compute(chunk);
-      chunk.hasGenerated = true;
-      this.chunks.set(key, chunk);
-      this.queueChunkForMeshBuild(chunk);
-      this.markNeighborsDirty(cx, cz);
+      this.finalizeChunkGeneration(chunk, key, cx, cz);
     }
+  }
+
+  createWorker() {
+    if (typeof window === "undefined" || typeof Worker === "undefined") {
+      this.workerFallback = true;
+      return;
+    }
+
+    try {
+      this.worker = new Worker(new URL("./ChunkWorker.js", import.meta.url), { type: "module" });
+      this.worker.onmessage = (event) => this.handleWorkerMessage(event.data);
+      this.worker.onerror = (error) => {
+        console.error("Chunk worker failed", error);
+        this.workerFallback = true;
+      };
+    } catch (error) {
+      console.warn("Chunk worker unavailable", error);
+      this.workerFallback = true;
+    }
+  }
+
+  handleWorkerMessage(message) {
+    if (!message || message.type !== "chunk-ready") return;
+
+    const { key, cx, cz, blocks, sunLight, blockLight } = message;
+    if (!key || this.chunks.has(key)) {
+      this.generatingSet.delete(key);
+      return;
+    }
+
+    this.generatingSet.delete(key);
+
+    const chunk = new Chunk(cx, cz);
+    chunk.blocks = new Uint8Array(blocks);
+    chunk.sunLight = new Uint8Array(sunLight);
+    chunk.blockLight = new Uint8Array(blockLight);
+    this.finalizeChunkGeneration(chunk, key, cx, cz);
+  }
+
+  finalizeChunkGeneration(chunk, key, cx, cz) {
+    this.addVegetation(chunk);
+    this.applySavedChanges(chunk);
+    chunk.hasGenerated = true;
+    chunk.dirty = true;
+    this.chunks.set(key, chunk);
+    this.queueChunkForMeshBuild(chunk);
+    this.markNeighborsDirty(cx, cz);
   }
 
   rebuildDirtyMeshes(budget, centerCx = 0, centerCz = 0) {
     if (!this.dirtyQueue.length) return;
     const dirtyChunks = this.dirtyQueue
       .filter((chunk) => chunk?.dirty && chunk?.hasGenerated)
-      .sort((a, b) => {
-        const da = Math.max(Math.abs(a.cx - centerCx), Math.abs(a.cz - centerCz));
-        const db = Math.max(Math.abs(b.cx - centerCx), Math.abs(b.cz - centerCz));
-        return da - db;
-      })
-      .slice(0, budget);
+      .sort((a, b) => this.getMeshBuildPriority(a, centerCx, centerCz) - this.getMeshBuildPriority(b, centerCx, centerCz));
 
-    for (const chunk of dirtyChunks) {
-      const queueKey = this.key(chunk.cx, chunk.cz);
-      this.dirtySet.delete(queueKey);
-      if (!chunk.dirty) continue;
+    const selected = dirtyChunks.slice(0, Math.max(1, budget));
+    this.dirtyQueue = this.dirtyQueue.filter((chunk) => {
+      if (!chunk || !chunk.hasGenerated || !chunk.dirty) {
+        if (chunk) {
+          this.dirtySet.delete(this.key(chunk.cx, chunk.cz));
+        }
+        return false;
+      }
+      if (selected.includes(chunk)) {
+        this.dirtySet.delete(this.key(chunk.cx, chunk.cz));
+        return false;
+      }
+      return true;
+    });
+
+    for (const chunk of selected) {
+      if (!chunk?.dirty || !chunk?.hasGenerated) continue;
       this.lightEngine.compute(chunk);
       this.meshBuilder.build(chunk, 0);
     }
+  }
+
+  getMeshBuildPriority(chunk, centerCx = 0, centerCz = 0) {
+    const distance = Math.max(Math.abs(chunk.cx - centerCx), Math.abs(chunk.cz - centerCz));
+    const hasMesh = chunk.mesh ? 0 : 1;
+    return distance * 10 + hasMesh;
   }
 
   unloadFarChunks(centerCx, centerCz) {
