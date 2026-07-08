@@ -25,6 +25,8 @@ export class ChunkManager {
     this.dirtyQueue = [];
     this.dirtySet = new Set();
     this.workAccumulator = 0;
+    this.waterQueue = [];
+    this.waterQueueSet = new Set();
   }
 
   update(playerPosition, deltaSeconds = 0) {
@@ -51,6 +53,8 @@ export class ChunkManager {
     if (this.dirtyQueue.length) {
       this.rebuildDirtyMeshes(1, playerChunk.cx, playerChunk.cz);
     }
+
+    this.updateWaterFlow(2);
   }
 
   queueNearbyChunks(centerCx, centerCz) {
@@ -85,6 +89,7 @@ export class ChunkManager {
       chunk.hasGenerated = true;
       this.chunks.set(key, chunk);
       this.queueChunkForMeshBuild(chunk);
+      this.queueChunkWater(chunk);
       this.markNeighborsDirty(cx, cz);
     }
   }
@@ -194,6 +199,9 @@ export class ChunkManager {
     this.saveManager.setBlockChange(this.key(cx, cz), localIndex, blockId);
     this.queueChunkForMeshBuild(chunk);
     this.markNeighborsDirty(cx, cz);
+    if (blockId === Blocks.WATER) {
+      this.queueWaterPosition(worldX, y, worldZ);
+    }
     this.lightEngine.compute(chunk);
     return true;
   }
@@ -285,6 +293,47 @@ export class ChunkManager {
     return null;
   }
 
+  updateWaterFlow(budget = 2) {
+    let processed = 0;
+    while (processed < budget && this.waterQueue.length) {
+      const item = this.waterQueue.shift();
+      if (!item) continue;
+      const queueKey = `${item.x},${item.y},${item.z}`;
+      this.waterQueueSet.delete(queueKey);
+
+      if (this.getBlock(item.x, item.y, item.z) !== Blocks.WATER) continue;
+      if (this.tryFlowWater(item.x, item.y, item.z)) {
+        processed++;
+      }
+    }
+  }
+
+  tryFlowWater(x, y, z) {
+    const below = this.getBlock(x, y - 1, z);
+    if (below === Blocks.AIR) {
+      this.setBlock(x, y, z, Blocks.AIR);
+      this.setBlock(x, y - 1, z, Blocks.WATER);
+      return true;
+    }
+
+    const directions = [
+      { x: x + 1, y, z },
+      { x: x - 1, y, z },
+      { x, y, z: z + 1 },
+      { x, y, z: z - 1 },
+    ];
+
+    for (const target of directions) {
+      if (this.getBlock(target.x, target.y, target.z) === Blocks.AIR) {
+        this.setBlock(x, y, z, Blocks.AIR);
+        this.setBlock(target.x, target.y, target.z, Blocks.WATER);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   queueChunkForMeshBuild(chunk) {
     if (!chunk || !chunk.hasGenerated) return;
     chunk.dirty = true;
@@ -292,6 +341,25 @@ export class ChunkManager {
     if (this.dirtySet.has(key)) return;
     this.dirtyQueue.push(chunk);
     this.dirtySet.add(key);
+  }
+
+  queueChunkWater(chunk) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let y = 0; y < WORLD_HEIGHT; y++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          if (chunk.getBlock(x, y, z) === Blocks.WATER) {
+            this.queueWaterPosition(chunk.cx * CHUNK_SIZE + x, y, chunk.cz * CHUNK_SIZE + z);
+          }
+        }
+      }
+    }
+  }
+
+  queueWaterPosition(worldX, worldY, worldZ) {
+    const key = `${worldX},${worldY},${worldZ}`;
+    if (this.waterQueueSet.has(key)) return;
+    this.waterQueueSet.add(key);
+    this.waterQueue.push({ x: worldX, y: worldY, z: worldZ });
   }
 
   markNeighborsDirty(cx, cz) {
