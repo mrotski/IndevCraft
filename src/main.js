@@ -13,6 +13,8 @@ import { HUD } from "./ui/HUD.js";
 import { CreativeInventory } from "./ui/CreativeInventory.js";
 import { PauseMenu } from "./ui/PauseMenu.js";
 
+let pendingTeleport = null;
+
 export async function startGame() {
   const canvas = document.getElementById("gameCanvas");
   const loading = document.getElementById("loading");
@@ -158,7 +160,6 @@ export async function startGame() {
     },
   });
 
-  let pendingTeleport = null;
   let lastPointerLocked = document.pointerLockElement === canvas;
   document.addEventListener("pointerlockchange", () => {
     const nowLocked = document.pointerLockElement === canvas;
