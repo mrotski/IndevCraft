@@ -12,6 +12,8 @@ export class HUD {
     this.selectedIndex = 0;
     this.onSelectionChange = null;
     this.isInputBlocked = isInputBlocked;
+    this.lastDebugRefresh = 0;
+    this.lastDisplayedFps = 0;
     this.createHotbar();
 
     document.addEventListener("keydown", (event) => {
@@ -113,13 +115,20 @@ export class HUD {
   }
 
   update(fps, player, chunkManager) {
+    const now = performance.now();
+    if (now - this.lastDebugRefresh < 400) {
+      return;
+    }
+    this.lastDebugRefresh = now;
+    this.lastDisplayedFps = fps;
+
     const position = player.position;
     const chunkX = Math.floor(position.x / CHUNK_SIZE);
     const chunkZ = Math.floor(position.z / CHUNK_SIZE);
     const selectedBlock = this.getSelectedBlock();
     const blockName = selectedBlock == null ? "Empty" : BlockData[selectedBlock].name;
     this.debug.innerHTML = [
-      `FPS: ${Math.round(fps)}`,
+      `FPS: ${Math.round(this.lastDisplayedFps)}`,
       `XYZ: ${position.x.toFixed(1)} / ${position.y.toFixed(1)} / ${position.z.toFixed(1)}`,
       `Chunk: ${chunkX}, ${chunkZ}`,
       `Loaded chunks: ${chunkManager.chunks.size}`,
