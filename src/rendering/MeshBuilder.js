@@ -55,8 +55,6 @@ export class MeshBuilder {
     this.chunkManager = chunkManager;
     this.textureAtlas = textureAtlas;
     this.material = this.createMaterial();
-    this.waterMeshes = new Set();
-    this.waterFlowOffset = 0;
   }
 
   createMaterial() {
@@ -67,35 +65,6 @@ export class MeshBuilder {
       alphaTest: 0.05,
       side: THREE.FrontSide,
     });
-  }
-
-  createWaterMaterial() {
-    return new THREE.MeshBasicMaterial({
-      map: this.textureAtlas.texture,
-      vertexColors: true,
-      transparent: true,
-      alphaTest: 0.05,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      blending: THREE.NormalBlending,
-    });
-  }
-
-  updateWaterAnimation(deltaSeconds) {
-    this.waterFlowOffset = (this.waterFlowOffset + deltaSeconds * 0.04) % 1;
-    for (const mesh of this.waterMeshes) {
-      const geometry = mesh?.geometry;
-      const uvAttribute = geometry?.attributes?.uv;
-      if (!uvAttribute || !mesh.userData?.baseUvs) continue;
-
-      const base = mesh.userData.baseUvs;
-      const offset = this.waterFlowOffset;
-      for (let index = 0; index < base.length; index += 2) {
-        uvAttribute.array[index] = base[index] + offset;
-        uvAttribute.array[index + 1] = base[index + 1];
-      }
-      uvAttribute.needsUpdate = true;
-    }
   }
 
   build(chunk) {
@@ -217,9 +186,6 @@ export class MeshBuilder {
 
     if (chunk.meshes) {
       for (const mesh of chunk.meshes) {
-        if (mesh.userData?.isWaterMesh) {
-          this.waterMeshes.delete(mesh);
-        }
         if (mesh.geometry && mesh.geometry.dispose) mesh.geometry.dispose();
         if (mesh.material && mesh.material.dispose) mesh.material.dispose();
         if (mesh.parent && typeof mesh.parent.remove === "function") mesh.parent.remove(mesh);
@@ -230,7 +196,7 @@ export class MeshBuilder {
 
     const meshes = [];
 
-    const addMeshFromArrays = (positionsArr, normalsArr, uvsArr, colorsArr, indicesArr, material, isWaterMesh = false) => {
+    const addMeshFromArrays = (positionsArr, normalsArr, uvsArr, colorsArr, indicesArr, material) => {
       if (positionsArr.length === 0) return null;
       const vertexCountLocal = positionsArr.length / 3;
       if (normalsArr.length / 3 !== vertexCountLocal || colorsArr.length / 3 !== vertexCountLocal || uvsArr.length / 2 !== vertexCountLocal) {
@@ -257,11 +223,6 @@ export class MeshBuilder {
 
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(chunk.cx * CHUNK_SIZE, 0, chunk.cz * CHUNK_SIZE);
-      mesh.userData.isWaterMesh = isWaterMesh;
-      if (isWaterMesh) {
-        mesh.userData.baseUvs = new Float32Array(uvsArr);
-        this.waterMeshes.add(mesh);
-      }
       this.scene.add(mesh);
       return mesh;
     };
@@ -303,7 +264,12 @@ export class MeshBuilder {
     }
 
     if (positionsWater.length > 0) {
-      const waterMaterial = this.createWaterMaterial();
+      const waterMaterial = this.material.clone();
+      waterMaterial.side = THREE.DoubleSide;
+      waterMaterial.transparent = true;
+      waterMaterial.depthWrite = false;
+      waterMaterial.blending = THREE.NormalBlending;
+
       const waterMesh = addMeshFromArrays(
         positionsWater,
         normalsWater,
@@ -311,7 +277,6 @@ export class MeshBuilder {
         colorsWater,
         indicesWater,
         waterMaterial,
-        true,
       );
       if (waterMesh) {
         waterMesh.renderOrder = 2;

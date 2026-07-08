@@ -273,7 +273,6 @@ export async function startGame() {
     player.update(deltaSeconds);
     blockParticles.update(deltaSeconds);
     chunkManager.update(player.position, deltaSeconds);
-    chunkManager.meshBuilder?.updateWaterAnimation?.(deltaSeconds);
     worldTimeState.value += deltaSeconds * 1000;
     atmosphere.update(player.position, worldTimeState.value, deltaSeconds);
     hud.update(fps, player, chunkManager);
@@ -312,11 +311,11 @@ function runCommand(command, player, chunkManager, saveWorld, setWorldTime) {
 
     if (values.length === 2) {
       const [x, z] = values;
-      chunkManager.prepareAreaAround(x, z);
+      chunkManager.prepareAreaAround(x, z, 96);
       player.position.copy(chunkManager.findSurfacePosition(x, z));
     } else if (values.length === 3) {
       const [x, y, z] = values;
-      chunkManager.prepareAreaAround(x, z);
+      chunkManager.prepareAreaAround(x, z, 96);
       player.position.set(x, y, z);
     } else {
       return "Usage: /tp <x> <y> <z> or /tp <x> <z>";
@@ -349,6 +348,10 @@ function runCommand(command, player, chunkManager, saveWorld, setWorldTime) {
     setWorldTime(timeMap[preset]);
     saveWorld();
     return `Set time to ${preset}`;
+  }
+
+  if (name === "seed") {
+    return `Seed: ${chunkManager.seed}`;
   }
 
   return `Unknown command: /${name ?? ""}`;

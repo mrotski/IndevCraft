@@ -130,10 +130,6 @@ export class HUD {
     this.debug.innerHTML = [
       `FPS: ${Math.round(this.lastDisplayedFps)}`,
       `XYZ: ${position.x.toFixed(1)} / ${position.y.toFixed(1)} / ${position.z.toFixed(1)}`,
-      `Chunk: ${chunkX}, ${chunkZ}`,
-      `Loaded chunks: ${chunkManager.chunks.size}`,
-      `Seed: ${this.seed}`,
-      `Selected: ${blockName}`,
     ].join("<br>");
   }
 }

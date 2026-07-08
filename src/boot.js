@@ -16,8 +16,8 @@ async function start() {
     await startGame();
   } catch (error) {
     console.error(error);
-    loading.innerHTML =
-      "<strong>Runtime failed to load.</strong><span>The local runtime file could not be loaded. Make sure vendor files are present, then reload.</span>";
+    const message = error?.message || "Unknown startup error";
+    loading.innerHTML = `<strong>Runtime failed to load.</strong><span>${message}</span>`;
   }
 }
 
