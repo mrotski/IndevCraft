@@ -30,7 +30,6 @@ export class ChunkManager {
     const needsStreamingUpdate = chunkKey !== this.lastPlayerChunkKey || this.lastQueuedRenderDistance !== this.renderDistance;
     if (needsStreamingUpdate) {
       this.queueNearbyChunks(playerChunk.cx, playerChunk.cz);
-      this.updateChunkLods(playerChunk.cx, playerChunk.cz);
       this.unloadFarChunks(playerChunk.cx, playerChunk.cz);
       this.lastPlayerChunkKey = chunkKey;
       this.lastQueuedRenderDistance = this.renderDistance;
@@ -86,7 +85,7 @@ export class ChunkManager {
     for (let index = 0; index < budget && index < dirtyChunks.length; index++) {
       const chunk = dirtyChunks[index];
       this.lightEngine.compute(chunk);
-      this.meshBuilder.build(chunk, chunk.lodLevel ?? 0);
+      this.meshBuilder.build(chunk, 0);
     }
   }
 
@@ -175,26 +174,8 @@ export class ChunkManager {
     this.saveManager.setBlockChange(this.key(cx, cz), localIndex, blockId);
     this.markNeighborsDirty(cx, cz);
     this.lightEngine.compute(chunk);
-    this.meshBuilder.build(chunk, chunk.lodLevel ?? 0);
+    this.meshBuilder.build(chunk, 0);
     return true;
-  }
-
-  updateChunkLods(centerCx, centerCz) {
-    for (const chunk of this.chunks.values()) {
-      const desiredLod = this.getChunkLodLevel(chunk.cx, chunk.cz, centerCx, centerCz);
-      if (desiredLod !== chunk.lodLevel) {
-        chunk.lodLevel = desiredLod;
-        chunk.dirty = true;
-      }
-    }
-  }
-
-  getChunkLodLevel(cx, cz, centerCx, centerCz) {
-    const distance = Math.max(Math.abs(cx - centerCx), Math.abs(cz - centerCz));
-    if (distance <= 3) return 0;
-    if (distance <= 7) return 1;
-    if (distance <= 15) return 2;
-    return 3;
   }
 
   getSunLight(worldX, worldY, worldZ) {
@@ -231,7 +212,6 @@ export class ChunkManager {
     const { cx, cz } = this.worldToChunk(worldX, worldZ);
     this.queueNearbyChunks(cx, cz);
     this.generatePending(budget);
-    this.updateChunkLods(cx, cz);
     this.rebuildDirtyMeshes(budget, cx, cz);
   }
 
