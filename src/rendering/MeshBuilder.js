@@ -295,12 +295,9 @@ export class MeshBuilder {
     const emitQuad = (target, vertices, normal, block, faceName, shade, lightPoint) => {
       const color = this.getFaceColor(block, faceName);
       const uv = this.textureAtlas.getUV(getBlockTextureKey(block, faceName));
-      const faceUvs = [
-        [uv.u1, uv.v0],
-        [uv.u0, uv.v0],
-        [uv.u0, uv.v1],
-        [uv.u1, uv.v1],
-      ];
+      const repeatX = Math.max(1, Math.ceil(this.getLodFaceSpan(vertices, 0, 1)));
+      const repeatY = Math.max(1, Math.ceil(this.getLodFaceSpan(vertices, 0, 3)));
+      const faceUvs = this.getLodFaceUvs(uv, repeatX, repeatY);
       const light = this.getLodLight(chunk, lightPoint);
       const litShade = shade * (0.24 + 0.76 * (light / 15));
       const nextVertex = this.appendQuad(
@@ -621,6 +618,26 @@ export class MeshBuilder {
     }
     indices.push(vertex, vertex + 1, vertex + 2, vertex, vertex + 2, vertex + 3);
     return vertex + 4;
+  }
+
+  getLodFaceUvs(uv, repeatX, repeatY) {
+    const tileWidth = uv.u1 - uv.u0;
+    const tileHeight = uv.v1 - uv.v0;
+    return [
+      [uv.u0, uv.v0],
+      [uv.u0 + tileWidth * repeatX, uv.v0],
+      [uv.u0 + tileWidth * repeatX, uv.v0 + tileHeight * repeatY],
+      [uv.u0, uv.v0 + tileHeight * repeatY],
+    ];
+  }
+
+  getLodFaceSpan(vertices, firstIndex, secondIndex) {
+    const a = vertices[firstIndex];
+    const b = vertices[secondIndex];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const dz = b[2] - a[2];
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
   }
 
   getLodLight(chunk, samplePoint) {
