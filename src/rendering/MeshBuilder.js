@@ -55,6 +55,7 @@ export class MeshBuilder {
     this.chunkManager = chunkManager;
     this.textureAtlas = textureAtlas;
     this.material = this.createMaterial();
+    this.waterMaterials = new Set();
   }
 
   createMaterial() {
@@ -65,6 +66,35 @@ export class MeshBuilder {
       alphaTest: 0.05,
       side: THREE.FrontSide,
     });
+  }
+
+  createWaterMaterial() {
+    const texture = this.textureAtlas.texture.clone();
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2);
+    texture.offset.set(0, 0);
+    texture.needsUpdate = true;
+
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      vertexColors: true,
+      transparent: true,
+      alphaTest: 0.05,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.NormalBlending,
+    });
+    this.waterMaterials.add(material);
+    return material;
+  }
+
+  updateWaterAnimation(deltaSeconds) {
+    for (const material of this.waterMaterials) {
+      if (!material?.map) continue;
+      material.map.offset.x = (material.map.offset.x + deltaSeconds * 0.08) % 1;
+      material.map.offset.y = 0;
+      material.map.needsUpdate = true;
+    }
   }
 
   build(chunk) {
@@ -81,6 +111,13 @@ export class MeshBuilder {
     const colorsTransparent = [];
     const uvsTransparent = [];
     let vertexTransparent = 0;
+
+    const positionsWater = [];
+    const indicesWater = [];
+    const normalsWater = [];
+    const colorsWater = [];
+    const uvsWater = [];
+    let vertexWater = 0;
 
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
@@ -126,7 +163,22 @@ export class MeshBuilder {
 
           for (const face of FACE_DIRECTIONS) {
             if (!this.shouldRenderFace(chunk, x, y, z, face)) continue;
-            if (isTrans) {
+            if (block === Blocks.WATER) {
+              vertexWater = this.addFace(
+                chunk,
+                x,
+                y,
+                z,
+                block,
+                face,
+                positionsWater,
+                normalsWater,
+                indicesWater,
+                colorsWater,
+                uvsWater,
+                vertexWater,
+              );
+            } else if (isTrans) {
               vertexTransparent = this.addFace(
                 chunk,
                 x,
@@ -238,6 +290,22 @@ export class MeshBuilder {
       if (transMesh) {
         transMesh.renderOrder = 1;
         meshes.push(transMesh);
+      }
+    }
+
+    if (positionsWater.length > 0) {
+      const waterMaterial = this.createWaterMaterial();
+      const waterMesh = addMeshFromArrays(
+        positionsWater,
+        normalsWater,
+        uvsWater,
+        colorsWater,
+        indicesWater,
+        waterMaterial,
+      );
+      if (waterMesh) {
+        waterMesh.renderOrder = 2;
+        meshes.push(waterMesh);
       }
     }
 
