@@ -22,9 +22,12 @@ export class ChunkManager {
     this.renderDistance = LOAD_RADIUS;
     this.lastPlayerChunkKey = null;
     this.lastQueuedRenderDistance = this.renderDistance;
+    this.dirtyQueue = [];
+    this.dirtySet = new Set();
+    this.workAccumulator = 0;
   }
 
-  update(playerPosition) {
+  update(playerPosition, deltaSeconds = 0) {
     const playerChunk = this.worldToChunk(playerPosition.x, playerPosition.z);
     const chunkKey = this.key(playerChunk.cx, playerChunk.cz);
     const needsStreamingUpdate = chunkKey !== this.lastPlayerChunkKey || this.lastQueuedRenderDistance !== this.renderDistance;
@@ -34,8 +37,20 @@ export class ChunkManager {
       this.lastPlayerChunkKey = chunkKey;
       this.lastQueuedRenderDistance = this.renderDistance;
     }
-    this.generatePending(2);
-    this.rebuildDirtyMeshes(4, playerChunk.cx, playerChunk.cz);
+
+    this.workAccumulator += deltaSeconds;
+    if (this.workAccumulator < 0.05 && (this.pending.length || this.dirtyQueue.length)) {
+      return;
+    }
+    this.workAccumulator = 0;
+
+    if (this.pending.length) {
+      this.generatePending(1);
+    }
+
+    if (this.dirtyQueue.length) {
+      this.rebuildDirtyMeshes(1, playerChunk.cx, playerChunk.cz);
+    }
   }
 
   queueNearbyChunks(centerCx, centerCz) {
@@ -69,21 +84,26 @@ export class ChunkManager {
       this.lightEngine.compute(chunk);
       chunk.hasGenerated = true;
       this.chunks.set(key, chunk);
+      this.queueChunkForMeshBuild(chunk);
       this.markNeighborsDirty(cx, cz);
     }
   }
 
   rebuildDirtyMeshes(budget, centerCx = 0, centerCz = 0) {
-    const dirtyChunks = [...this.chunks.values()]
-      .filter((chunk) => chunk.dirty)
+    if (!this.dirtyQueue.length) return;
+    const dirtyChunks = this.dirtyQueue
+      .filter((chunk) => chunk?.dirty && chunk?.hasGenerated)
       .sort((a, b) => {
         const da = Math.max(Math.abs(a.cx - centerCx), Math.abs(a.cz - centerCz));
         const db = Math.max(Math.abs(b.cx - centerCx), Math.abs(b.cz - centerCz));
         return da - db;
-      });
+      })
+      .slice(0, budget);
 
-    for (let index = 0; index < budget && index < dirtyChunks.length; index++) {
-      const chunk = dirtyChunks[index];
+    for (const chunk of dirtyChunks) {
+      const queueKey = this.key(chunk.cx, chunk.cz);
+      this.dirtySet.delete(queueKey);
+      if (!chunk.dirty) continue;
       this.lightEngine.compute(chunk);
       this.meshBuilder.build(chunk, 0);
     }
@@ -172,9 +192,9 @@ export class ChunkManager {
     if (!chunk.setBlock(lx, y, lz, blockId)) return false;
     const localIndex = Chunk.index(lx, y, lz);
     this.saveManager.setBlockChange(this.key(cx, cz), localIndex, blockId);
+    this.queueChunkForMeshBuild(chunk);
     this.markNeighborsDirty(cx, cz);
     this.lightEngine.compute(chunk);
-    this.meshBuilder.build(chunk, 0);
     return true;
   }
 
@@ -265,11 +285,20 @@ export class ChunkManager {
     return null;
   }
 
+  queueChunkForMeshBuild(chunk) {
+    if (!chunk || !chunk.hasGenerated) return;
+    chunk.dirty = true;
+    const key = this.key(chunk.cx, chunk.cz);
+    if (this.dirtySet.has(key)) return;
+    this.dirtyQueue.push(chunk);
+    this.dirtySet.add(key);
+  }
+
   markNeighborsDirty(cx, cz) {
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
         const chunk = this.chunks.get(this.key(cx + dx, cz + dz));
-        if (chunk) chunk.dirty = true;
+        if (chunk) this.queueChunkForMeshBuild(chunk);
       }
     }
   }

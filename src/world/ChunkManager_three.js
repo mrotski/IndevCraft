@@ -19,6 +19,9 @@ export class ChunkManagerThree {
     this.lightEngine = new LightEngine();
     this.meshBuilder = new MeshBuilderThree(scene, this, textureAtlas);
     this.renderDistance = LOAD_RADIUS;
+    this.dirtyQueue = [];
+    this.dirtySet = new Set();
+    this.workAccumulator = 0;
   }
 
   queueNearbyChunks(centerCx, centerCz) {
@@ -50,18 +53,20 @@ export class ChunkManagerThree {
       this.lightEngine.compute(chunk);
       chunk.hasGenerated = true;
       this.chunks.set(key, chunk);
+      this.queueChunkForMeshBuild(chunk);
       this.markNeighborsDirty(cx, cz);
     }
   }
 
   rebuildDirtyMeshes(budget) {
-    let rebuilt = 0;
-    for (const chunk of this.chunks.values()) {
+    if (!this.dirtyQueue.length) return;
+    const dirtyChunks = this.dirtyQueue.filter((chunk) => chunk?.dirty && chunk?.hasGenerated).slice(0, budget);
+    for (const chunk of dirtyChunks) {
+      const queueKey = this.key(chunk.cx, chunk.cz);
+      this.dirtySet.delete(queueKey);
       if (!chunk.dirty) continue;
       this.lightEngine.compute(chunk);
       this.meshBuilder.build(chunk);
-      rebuilt++;
-      if (rebuilt >= budget) return;
     }
   }
 
@@ -148,9 +153,9 @@ export class ChunkManagerThree {
     if (!chunk.setBlock(lx, y, lz, blockId)) return false;
     const localIndex = Chunk.index(lx, y, lz);
     this.saveManager.setBlockChange(this.key(cx, cz), localIndex, blockId);
+    this.queueChunkForMeshBuild(chunk);
     this.markNeighborsDirty(cx, cz);
     this.lightEngine.compute(chunk);
-    this.meshBuilder.build(chunk);
     return true;
   }
 
@@ -175,12 +180,19 @@ export class ChunkManagerThree {
     this.rebuildDirtyMeshes(budget);
   }
 
-  update(playerPosition) {
+  update(playerPosition, deltaSeconds = 0) {
     const playerChunk = this.worldToChunk(playerPosition.x, playerPosition.z);
     this.queueNearbyChunks(playerChunk.cx, playerChunk.cz);
-    this.generatePending(2);
+
+    this.workAccumulator += deltaSeconds;
+    if (this.workAccumulator < 0.05 && (this.pending.length || this.dirtyQueue.length)) {
+      return;
+    }
+    this.workAccumulator = 0;
+
+    this.generatePending(1);
     this.unloadFarChunks(playerChunk.cx, playerChunk.cz);
-    this.rebuildDirtyMeshes(4);
+    this.rebuildDirtyMeshes(1);
   }
 
   raycast(origin, direction, maxDistance = 6) {
@@ -229,11 +241,20 @@ export class ChunkManagerThree {
     return null;
   }
 
+  queueChunkForMeshBuild(chunk) {
+    if (!chunk || !chunk.hasGenerated) return;
+    chunk.dirty = true;
+    const key = this.key(chunk.cx, chunk.cz);
+    if (this.dirtySet.has(key)) return;
+    this.dirtyQueue.push(chunk);
+    this.dirtySet.add(key);
+  }
+
   markNeighborsDirty(cx, cz) {
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
         const chunk = this.chunks.get(this.key(cx + dx, cz + dz));
-        if (chunk) chunk.dirty = true;
+        if (chunk) this.queueChunkForMeshBuild(chunk);
       }
     }
   }

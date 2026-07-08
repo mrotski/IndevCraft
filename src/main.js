@@ -272,7 +272,7 @@ export async function startGame() {
 
     player.update(deltaSeconds);
     blockParticles.update(deltaSeconds);
-    chunkManager.update(player.position);
+    chunkManager.update(player.position, deltaSeconds);
     worldTimeState.value += deltaSeconds * 1000;
     atmosphere.update(player.position, worldTimeState.value, deltaSeconds);
     hud.update(fps, player, chunkManager);
