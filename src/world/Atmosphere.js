@@ -97,40 +97,84 @@ function createCelestialTexture(kind) {
   canvas.width = 128;
   canvas.height = 128;
   const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const center = 64;
   if (kind === "sun") {
-    ctx.fillStyle = "#ffd95a";
+    const glow = ctx.createRadialGradient(center, center, 12, center, center, 58);
+    glow.addColorStop(0, "rgba(255, 246, 176, 0.95)");
+    glow.addColorStop(0.45, "rgba(255, 213, 92, 0.75)");
+    glow.addColorStop(1, "rgba(255, 160, 48, 0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(center, center, 58, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(center, center);
+    ctx.fillStyle = "#ffda62";
+    ctx.strokeStyle = "#fff2a5";
+    ctx.lineWidth = 5;
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 * i) / 12;
+      const inner = 40 + (i % 2 === 0 ? 1 : -1);
+      const outer = 56;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+      ctx.lineTo(Math.cos(angle + 0.08) * outer, Math.sin(angle + 0.08) * outer);
+      ctx.lineTo(Math.cos(angle - 0.08) * outer, Math.sin(angle - 0.08) * outer);
+      ctx.closePath();
+      ctx.globalAlpha = 0.7;
+      ctx.fill();
+    }
+    ctx.restore();
+
+    const core = ctx.createRadialGradient(center - 8, center - 10, 8, center, center, 30);
+    core.addColorStop(0, "#fff9d3");
+    core.addColorStop(0.5, "#ffe27b");
+    core.addColorStop(1, "#ffca41");
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(center, center, 30, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.beginPath();
+    ctx.arc(54, 50, 10, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    const body = ctx.createRadialGradient(52, 50, 10, center, center, 34);
+    body.addColorStop(0, "#f2f2f2");
+    body.addColorStop(0.7, "#cbcbcb");
+    body.addColorStop(1, "#8a8a8a");
+    ctx.fillStyle = body;
     ctx.beginPath();
     ctx.arc(center, center, 28, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "#ffef9c";
-    ctx.lineWidth = 6;
-    for (let i = 0; i < 8; i++) {
-      const angle = (Math.PI * 2 * i) / 8;
-      const inner = 38;
-      const outer = 52;
-      ctx.beginPath();
-      ctx.moveTo(center + Math.cos(angle) * inner, center + Math.sin(angle) * inner);
-      ctx.lineTo(center + Math.cos(angle) * outer, center + Math.sin(angle) * outer);
-      ctx.stroke();
-    }
-  } else {
-    ctx.fillStyle = "#d8d8d8";
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
     ctx.beginPath();
-    ctx.arc(center, center, 24, 0, Math.PI * 2);
+    ctx.arc(54, 48, 10, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#b8b8b8";
+
+    ctx.fillStyle = "rgba(115, 115, 115, 0.65)";
     ctx.beginPath();
-    ctx.arc(54, 48, 6, 0, Math.PI * 2);
-    ctx.arc(73, 63, 5, 0, Math.PI * 2);
-    ctx.arc(61, 79, 4, 0, Math.PI * 2);
+    ctx.arc(50, 52, 7, 0, Math.PI * 2);
+    ctx.arc(72, 58, 5, 0, Math.PI * 2);
+    ctx.arc(62, 76, 4, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(center + 2, center - 1, 24, -0.8, 2.2);
+    ctx.stroke();
   }
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
   return texture;
 }
