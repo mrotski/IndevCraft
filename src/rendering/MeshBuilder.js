@@ -82,13 +82,6 @@ export class MeshBuilder {
     const uvsTransparent = [];
     let vertexTransparent = 0;
 
-    const positionsLeaves = [];
-    const indicesLeaves = [];
-    const normalsLeaves = [];
-    const colorsLeaves = [];
-    const uvsLeaves = [];
-    let vertexLeaves = 0;
-
     const positionsWater = [];
     const indicesWater = [];
     const normalsWater = [];
@@ -154,21 +147,6 @@ export class MeshBuilder {
                 colorsWater,
                 uvsWater,
                 vertexWater,
-              );
-            } else if (block === Blocks.LEAVES) {
-              vertexLeaves = this.addFace(
-                chunk,
-                x,
-                y,
-                z,
-                block,
-                face,
-                positionsLeaves,
-                normalsLeaves,
-                indicesLeaves,
-                colorsLeaves,
-                uvsLeaves,
-                vertexLeaves,
               );
             } else if (isTrans) {
               vertexTransparent = this.addFace(
@@ -282,29 +260,6 @@ export class MeshBuilder {
       if (transMesh) {
         transMesh.renderOrder = 1;
         meshes.push(transMesh);
-      }
-    }
-
-    if (positionsLeaves.length > 0) {
-      const leavesMaterial = this.material.clone();
-      leavesMaterial.side = THREE.DoubleSide;
-      leavesMaterial.transparent = true;
-      leavesMaterial.opacity = BlockData[Blocks.LEAVES]?.alpha ?? 0.58;
-      leavesMaterial.depthWrite = false;
-      leavesMaterial.alphaTest = 0.12;
-      leavesMaterial.blending = THREE.NormalBlending;
-
-      const leavesMesh = addMeshFromArrays(
-        positionsLeaves,
-        normalsLeaves,
-        uvsLeaves,
-        colorsLeaves,
-        indicesLeaves,
-        leavesMaterial,
-      );
-      if (leavesMesh) {
-        leavesMesh.renderOrder = 1.5;
-        meshes.push(leavesMesh);
       }
     }
 

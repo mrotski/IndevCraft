@@ -25,9 +25,6 @@ export class ChunkManager {
     this.dirtyQueue = [];
     this.dirtySet = new Set();
     this.workAccumulator = 0;
-    this.waterAccumulator = 0;
-    this.waterFlowQueue = [];
-    this.waterFlowSet = new Set();
     this.generatingSet = new Set();
     this.chunkReadyResolvers = new Map();
     this.worker = null;
@@ -59,13 +56,6 @@ export class ChunkManager {
     if (this.dirtyQueue.length) {
       const meshBudget = deltaSeconds > 0.016 ? 1 : 2;
       this.rebuildDirtyMeshes(meshBudget, playerChunk.cx, playerChunk.cz);
-    }
-
-    this.waterAccumulator += deltaSeconds;
-    if (this.waterAccumulator >= 0.03) {
-      const waterBudget = Math.max(6, Math.floor(this.waterAccumulator / 0.03) * 8);
-      this.waterAccumulator = 0;
-      this.processWaterFlow(waterBudget);
     }
   }
 
@@ -289,9 +279,6 @@ export class ChunkManager {
     this.queueChunkForMeshBuild(chunk);
     this.markNeighborsDirty(cx, cz);
     this.lightEngine.compute(chunk);
-    if (previousBlock === Blocks.WATER || blockId === Blocks.WATER || blockId === Blocks.AIR) {
-      this.enqueueWaterFlowAround(worldX, y, worldZ);
-    }
     return true;
   }
 
@@ -434,94 +421,6 @@ export class ChunkManager {
         if (chunk) this.queueChunkForMeshBuild(chunk);
       }
     }
-  }
-
-  seedWaterFlowFromChunk(chunk) {
-    if (!chunk) return;
-
-    for (let z = 0; z < CHUNK_SIZE; z++) {
-      for (let x = 0; x < CHUNK_SIZE; x++) {
-        const isEdge = x === 0 || x === CHUNK_SIZE - 1 || z === 0 || z === CHUNK_SIZE - 1;
-        if (!isEdge) continue;
-
-        for (let y = 0; y < WORLD_HEIGHT; y++) {
-          if (chunk.getBlock(x, y, z) !== Blocks.WATER) continue;
-          const worldX = chunk.cx * CHUNK_SIZE + x;
-          const worldZ = chunk.cz * CHUNK_SIZE + z;
-          this.enqueueWaterFlowAround(worldX, y, worldZ);
-        }
-      }
-    }
-  }
-
-  enqueueWaterFlowAround(worldX, worldY, worldZ) {
-    const offsets = [
-      [0, 0, 0],
-      [1, 0, 0],
-      [-1, 0, 0],
-      [0, 0, 1],
-      [0, 0, -1],
-      [0, 1, 0],
-      [0, -1, 0],
-    ];
-
-    for (const [dx, dy, dz] of offsets) {
-      this.enqueueWaterFlow(worldX + dx, worldY + dy, worldZ + dz);
-    }
-  }
-
-  enqueueWaterFlow(worldX, worldY, worldZ) {
-    const x = Math.floor(worldX);
-    const y = Math.floor(worldY);
-    const z = Math.floor(worldZ);
-    if (y < 0 || y >= WORLD_HEIGHT) return;
-    const key = this.waterKey(x, y, z);
-    if (this.waterFlowSet.has(key)) return;
-    this.waterFlowSet.add(key);
-    this.waterFlowQueue.push({ x, y, z });
-  }
-
-  processWaterFlow(budget = 12) {
-    let processed = 0;
-    while (processed < budget && this.waterFlowQueue.length > 0) {
-      const cell = this.waterFlowQueue.shift();
-      if (!cell) break;
-      this.waterFlowSet.delete(this.waterKey(cell.x, cell.y, cell.z));
-
-      if (this.getBlock(cell.x, cell.y, cell.z) !== Blocks.WATER) {
-        continue;
-      }
-
-      processed++;
-
-      if (cell.y > 0 && this.getBlock(cell.x, cell.y - 1, cell.z) === Blocks.AIR) {
-        if (this.setBlock(cell.x, cell.y - 1, cell.z, Blocks.WATER)) {
-          this.enqueueWaterFlowAround(cell.x, cell.y - 1, cell.z);
-        }
-        continue;
-      }
-
-      const neighbors = [
-        [1, 0, 0],
-        [-1, 0, 0],
-        [0, 0, 1],
-        [0, 0, -1],
-      ];
-
-      for (const [dx, dy, dz] of neighbors) {
-        const nx = cell.x + dx;
-        const ny = cell.y + dy;
-        const nz = cell.z + dz;
-        if (this.getBlock(nx, ny, nz) !== Blocks.AIR) continue;
-        if (this.setBlock(nx, ny, nz, Blocks.WATER)) {
-          this.enqueueWaterFlowAround(nx, ny, nz);
-        }
-      }
-    }
-  }
-
-  waterKey(x, y, z) {
-    return `${x},${y},${z}`;
   }
 
   shiftWorldOrigin(delta) {

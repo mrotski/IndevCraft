@@ -44,10 +44,9 @@ export const BlockData = {
   },
   [Blocks.LEAVES]: {
     name: "Leaves",
-    color: [0.92, 1, 0.92],
-    transparent: true,
+    color: [1, 1, 1],
+    transparent: false,
     solid: true,
-    alpha: 0.58,
     textures: { all: "leaves" },
   },
   [Blocks.COAL_ORE]: { name: "Coal Ore", color: [0.42, 0.42, 0.42], solid: true, textures: { all: "coal_ore" } },
