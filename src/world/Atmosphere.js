@@ -6,9 +6,9 @@ export class Atmosphere {
     this.sunLight = sunLight;
     this.fogEnabled = true;
 
-    this.daySky = new THREE.Color(0xcfd8dd);
+    this.daySky = new THREE.Color(0x77b9ea);
     this.nightSky = new THREE.Color(0x09111f);
-    this.dayFog = new THREE.Color(0xd6d8d6);
+    this.dayFog = new THREE.Color(0xb9dcf6);
     this.nightFog = new THREE.Color(0x0b1324);
     const celestialLoader = new THREE.TextureLoader();
 
@@ -55,8 +55,8 @@ export class Atmosphere {
       const fogColor = this.nightFog.clone().lerp(this.dayFog, daylight);
       fogColor.lerp(new THREE.Color(0x203044), nightBlend * 0.45);
       this.scene.fog.color.copy(fogColor);
-      this.scene.fog.near = lerp(22, 34, daylight);
-      this.scene.fog.far = lerp(48, 78, daylight);
+      this.scene.fog.near = lerp(20, 34, daylight);
+      this.scene.fog.far = lerp(54, 88, daylight);
     }
 
     this.sunLight.intensity = lerp(0.12, 0.95, daylight);
