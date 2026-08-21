@@ -12,6 +12,7 @@ import { Chat } from "./ui/Chat.js";
 import { HUD } from "./ui/HUD.js";
 import { CreativeInventory } from "./ui/CreativeInventory.js";
 import { PauseMenu } from "./ui/PauseMenu.js";
+import { MusicPlayer } from "./audio/MusicPlayer.js";
 
 let pendingTeleport = null;
 
@@ -81,6 +82,9 @@ export async function startGame() {
   const atmosphere = new Atmosphere(scene, skyLight);
   atmosphere.setFogEnabled(settingsManager.getFogEnabled());
   atmosphere.update(player.position, worldTimeState.value, 0);
+
+  const musicPlayer = new MusicPlayer();
+  musicPlayer.attachUserGestureListeners(document);
 
   let pauseMenu = null;
   let creativeInventory = null;
