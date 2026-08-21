@@ -82,6 +82,13 @@ export class MeshBuilder {
     const uvsTransparent = [];
     let vertexTransparent = 0;
 
+    const positionsGlass = [];
+    const indicesGlass = [];
+    const normalsGlass = [];
+    const colorsGlass = [];
+    const uvsGlass = [];
+    let vertexGlass = 0;
+
     const positionsWater = [];
     const indicesWater = [];
     const normalsWater = [];
@@ -147,6 +154,21 @@ export class MeshBuilder {
                 colorsWater,
                 uvsWater,
                 vertexWater,
+              );
+            } else if (block === Blocks.GLASS) {
+              vertexGlass = this.addFace(
+                chunk,
+                x,
+                y,
+                z,
+                block,
+                face,
+                positionsGlass,
+                normalsGlass,
+                indicesGlass,
+                colorsGlass,
+                uvsGlass,
+                vertexGlass,
               );
             } else if (isTrans) {
               vertexTransparent = this.addFace(
@@ -260,6 +282,27 @@ export class MeshBuilder {
       if (transMesh) {
         transMesh.renderOrder = 1;
         meshes.push(transMesh);
+      }
+    }
+
+    if (positionsGlass.length > 0) {
+      const glassMaterial = this.material.clone();
+      glassMaterial.side = THREE.DoubleSide;
+      glassMaterial.transparent = false;
+      glassMaterial.alphaTest = 0.08;
+      glassMaterial.depthWrite = true;
+
+      const glassMesh = addMeshFromArrays(
+        positionsGlass,
+        normalsGlass,
+        uvsGlass,
+        colorsGlass,
+        indicesGlass,
+        glassMaterial,
+      );
+      if (glassMesh) {
+        glassMesh.renderOrder = 1.2;
+        meshes.push(glassMesh);
       }
     }
 

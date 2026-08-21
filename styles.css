@@ -1,3 +1,9 @@
+@font-face {
+  font-family: "Mojangles";
+  src: url("./src/fonts/Mojang-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
 html,
 body {
   width: 100%;
@@ -5,7 +11,7 @@ body {
   margin: 0;
   overflow: hidden;
   background: #6da7d8;
-  font-family: "Jersey 10", "Courier New", monospace;
+  font-family: "Mojangles", "Jersey 10", "Courier New", monospace;
   color: #fff;
   user-select: none;
 }
@@ -286,7 +292,7 @@ body.inventory-open #help {
   background:url("src/loadingscreen.png");
   color: white;
   text-align: center;
-  font-family: "Jersey 10", "Courier New", monospace;
+  font-family: "Mojangles", "Jersey 10", "Courier New", monospace;
   text-shadow: 2px 2px 0 #1b1b1b;
 }
 
